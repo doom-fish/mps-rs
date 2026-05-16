@@ -29,30 +29,48 @@ let command_buffer = queue.new_command_buffer().expect("command buffer");
 blur.encode_image(&command_buffer, &src, &dst);
 ```
 
-## v0.1 surface
+## v0.2 surface
 
-- `ImageDescriptor` + `Image` for lazily allocated MPS images or texture-backed images
-- Float32 image read/write helpers plus raw byte transfer with `MPSDataLayout`
-- Unary image filters:
-  - `ImageGaussianBlur`
-  - `ImageBox`
-  - `ImageSobel`
-  - `ImageMedian`
-  - `ImageConvolution`
-  - `ImageBilinearScale`
-  - `ImageLanczosScale`
-  - `ImageThresholdBinary`
-  - `ImageStatisticsMinAndMax`
-  - `ImageStatisticsMean`
-  - `ImageReduceRowMin`, `ImageReduceRowMax`, `ImageReduceRowMean`, `ImageReduceRowSum`
-- `ImageHistogram` for histogram-to-`MTLBuffer` workloads
-- `ImageAdd` plus `ImageScaleAndAdd` convenience semantics backed by `MPSImageAdd`
-- `MatrixDescriptor`, `VectorDescriptor`, `MatrixMultiplicationDescriptor`, `Matrix`, `Vector`, and `MatrixMultiplication`
-- Shared constants for `MPSKernelOptions`, `MPSImageEdgeMode`, `MPSImageFeatureChannelFormat`, `MPSDataType`, and `MPSDataLayout`
+- Core helpers:
+  - `supports_mtl_device`, `preferred_device`, `hint_temporary_memory_high_water_mark`, `set_heap_cache_duration`
+  - `Predicate` and `MpsCommandBuffer`
+- Images:
+  - `ImageDescriptor` + `Image` for lazily allocated MPS images or texture-backed images
+  - Float32 image read/write helpers plus raw byte transfer with `MPSDataLayout`
+  - Unary image filters:
+    - `ImageGaussianBlur`
+    - `ImageBox`
+    - `ImageSobel`
+    - `ImageMedian`
+    - `ImageConvolution`
+    - `ImageBilinearScale`
+    - `ImageLanczosScale`
+    - `ImageThresholdBinary`
+    - `ImageStatisticsMinAndMax`
+    - `ImageStatisticsMean`
+    - `ImageReduceRowMin`, `ImageReduceRowMax`, `ImageReduceRowMean`, `ImageReduceRowSum`
+  - `ImageHistogram`, `ImageAdd`, and `ImageScaleAndAdd`
+- Matrix/vector:
+  - `MatrixDescriptor`, `VectorDescriptor`, `MatrixMultiplicationDescriptor`, `Matrix`, `Vector`, and `MatrixMultiplication`
+- `NDArray`:
+  - `NDArrayDescriptor`, `NDArray`, and `NDArrayIdentity`
+- Ray tracing / denoising:
+  - `PolygonAccelerationStructure`, `RayIntersector`, and `SVGF`
+- Neural graph / descriptors:
+  - `NNImageNode`, `NNGraph`
+  - `CnnNeuronReluNode`, `CnnPoolingMaxNode`, `CnnSoftMaxNode`, `CnnUpsamplingNearestNode`
+  - `CnnConvolutionDescriptor`, `RnnSingleGateDescriptor`
+- Shared constants for `MPSKernelOptions`, `MPSImageEdgeMode`, `MPSImageFeatureChannelFormat`, `MPSDataType`, `MPSDataLayout`, and new ray/RNN enums
 
-## Smoke examples
+See [`COVERAGE.md`](COVERAGE.md) for the Wave-C audit and the implemented/partial matrix.
+
+## Validation
 
 ```bash
+cargo test
 cargo run --example 01_blur_image
 cargo run --example 02_matrix_multiply
+cargo run --example 03_ndarray_identity
+cargo run --example 04_ray_intersection
+cargo run --example 05_nn_graph_relu
 ```

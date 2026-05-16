@@ -1,6 +1,6 @@
 [package]
 name = "apple-mps"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/doom-fish/mps-rs"
@@ -22,6 +22,7 @@ include = [
     "README.md",
     "LICENSE-*",
     "CHANGELOG.md",
+    "COVERAGE.md",
 ]
 
 [lints.rust]
@@ -55,3 +56,12 @@ name = "01_blur_image"
 
 [[example]]
 name = "02_matrix_multiply"
+
+[[example]]
+name = "03_ndarray_identity"
+
+[[example]]
+name = "04_ray_intersection"
+
+[[example]]
+name = "05_nn_graph_relu"

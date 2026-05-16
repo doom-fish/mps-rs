@@ -192,6 +192,11 @@ impl Image {
         self.ptr
     }
 
+    #[must_use]
+    pub(crate) const unsafe fn from_raw(ptr: *mut c_void) -> Self {
+        Self { ptr }
+    }
+
     /// Image width in pixels.
     #[must_use]
     pub fn width(&self) -> usize {

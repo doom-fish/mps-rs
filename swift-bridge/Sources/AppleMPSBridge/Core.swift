@@ -71,3 +71,35 @@ func mps_storage_mode(_ raw: UInt) -> MTLStorageMode {
 func mps_data_type(_ raw: UInt32) -> MPSDataType? {
     MPSDataType(rawValue: raw)
 }
+
+@_cdecl("mps_supports_mtl_device")
+public func mps_supports_mtl_device(_ deviceHandle: UnsafeMutableRawPointer?) -> Bool {
+    guard let device: MTLDevice = mps_borrow(deviceHandle) else { return false }
+    return MPSSupportsMTLDevice(device)
+}
+
+@_cdecl("mps_get_preferred_device")
+public func mps_get_preferred_device(_ optionsRaw: UInt) -> UnsafeMutableRawPointer? {
+    guard let device = MPSGetPreferredDevice(MPSDeviceOptions(rawValue: optionsRaw)) else {
+        return nil
+    }
+    return mps_retain(device)
+}
+
+@_cdecl("mps_hint_temporary_memory_high_water_mark")
+public func mps_hint_temporary_memory_high_water_mark(
+    _ commandBufferHandle: UnsafeMutableRawPointer?,
+    _ bytes: Int
+) {
+    guard let commandBuffer: MTLCommandBuffer = mps_borrow(commandBufferHandle) else { return }
+    MPSHintTemporaryMemoryHighWaterMark(commandBuffer, bytes)
+}
+
+@_cdecl("mps_set_heap_cache_duration")
+public func mps_set_heap_cache_duration(
+    _ commandBufferHandle: UnsafeMutableRawPointer?,
+    _ seconds: Double
+) {
+    guard let commandBuffer: MTLCommandBuffer = mps_borrow(commandBufferHandle) else { return }
+    MPSSetHeapCacheDuration(commandBuffer, seconds)
+}

@@ -5,12 +5,21 @@
 #![allow(clippy::module_name_repetitions)]
 #![allow(clippy::must_use_candidate)]
 
+pub mod core;
 pub mod error;
 pub mod ffi;
 pub mod filters;
 pub mod image;
 pub mod matrix;
+pub mod ndarray;
+pub mod neural;
+pub mod ray;
 
+pub use crate::core::{
+    device_options, hint_temporary_memory_high_water_mark, preferred_device,
+    set_heap_cache_duration, supports_mtl_device, CommandBuffer as MpsCommandBuffer, Predicate,
+    PreferredDevice,
+};
 pub use crate::error::{Error, Result};
 pub use crate::filters::{
     HistogramInfo, ImageAdd, ImageBilinearScale, ImageBox, ImageConvolution, ImageGaussianBlur,
@@ -25,4 +34,14 @@ pub use crate::image::{
 pub use crate::matrix::{
     data_type, data_type_size, Matrix, MatrixDescriptor, MatrixMultiplication,
     MatrixMultiplicationDescriptor, Vector, VectorDescriptor,
+};
+pub use crate::ndarray::{NDArray, NDArrayDescriptor, NDArrayIdentity};
+pub use crate::neural::{
+    rnn_sequence_direction, CnnConvolutionDescriptor, CnnNeuronReluNode, CnnPoolingMaxNode,
+    CnnSoftMaxNode, CnnUpsamplingNearestNode, NNGraph, NNImageNode, RnnSingleGateDescriptor,
+};
+pub use crate::ray::{
+    acceleration_structure_status, acceleration_structure_usage, cull_mode, intersection_data_type,
+    intersection_type, polygon_type, ray_data_type, winding, PolygonAccelerationStructure,
+    RayIntersector, SVGF,
 };
