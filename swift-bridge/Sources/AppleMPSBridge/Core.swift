@@ -19,6 +19,13 @@ public func mps_borrow<T>(_ handle: UnsafeMutableRawPointer?) -> T? {
     return Unmanaged<AnyObject>.fromOpaque(handle).takeUnretainedValue() as? T
 }
 
+@_cdecl("mps_object_retain")
+public func mps_object_retain(_ handle: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
+    guard let handle else { return nil }
+    let object = Unmanaged<AnyObject>.fromOpaque(handle).takeUnretainedValue()
+    return mps_retain(object)
+}
+
 @_cdecl("mps_object_release")
 public func mps_object_release(_ handle: UnsafeMutableRawPointer?) {
     mps_release(handle)
@@ -70,6 +77,23 @@ func mps_storage_mode(_ raw: UInt) -> MTLStorageMode {
 @inline(__always)
 func mps_data_type(_ raw: UInt32) -> MPSDataType? {
     MPSDataType(rawValue: raw)
+}
+
+@inline(__always)
+func mps_borrow_array<T>(
+    _ handles: UnsafePointer<UnsafeMutableRawPointer?>?,
+    count: Int
+) -> [T]? {
+    guard count >= 0 else { return nil }
+    if count == 0 { return [] }
+    guard let handles else { return nil }
+    var objects = [T]()
+    objects.reserveCapacity(count)
+    for index in 0..<count {
+        guard let object: T = mps_borrow(handles[index]) else { return nil }
+        objects.append(object)
+    }
+    return objects
 }
 
 @_cdecl("mps_supports_mtl_device")

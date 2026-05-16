@@ -1,10 +1,10 @@
 # mps-rs coverage audit (vs MacOSX26.2.sdk)
 
 SDK_PUBLIC_SYMBOLS: 479
-VERIFIED: 53
-GAPS: 411
+VERIFIED: 78
+GAPS: 386
 EXEMPT: 15
-COVERAGE_PCT: 11.42%
+COVERAGE_PCT: 16.28%
 
 Scope: `MetalPerformanceShaders.h` plus its transitive umbrella imports (`MPSCore`, `MPSImage`, `MPSMatrix`, `MPSNDArray`, `MPSNeuralNetwork`, `MPSRayIntersector`). `MPSFunctions` and `MPSBenchmarkLoop` are excluded because the umbrella header does not import them.
 
@@ -13,7 +13,11 @@ Methodology: top-level Objective-C interfaces/protocols, enum/options/struct typ
 ## 🟢 VERIFIED
 | Symbol | Kind | Header | Wrapped by |
 | --- | --- | --- | --- |
+| MPSCNNConvolution | interface | MPSNeuralNetwork/MPSCNNConvolution.h | CnnConvolution |
 | MPSCNNConvolutionDescriptor | interface | MPSNeuralNetwork/MPSCNNConvolution.h | CnnConvolutionDescriptor |
+| MPSCNNConvolutionFlags | enum | MPSNeuralNetwork/MPSNeuralNetworkTypes.h | cnn_convolution_flags |
+| MPSCNNConvolutionWeightsAndBiasesState | interface | MPSNeuralNetwork/MPSCNNConvolution.h | CnnConvolutionWeightsAndBiasesState |
+| MPSCNNConvolutionWeightsLayout | enum | MPSNeuralNetwork/MPSCNNConvolution.h | cnn_convolution_weights_layout |
 | MPSCNNNeuronReLUNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | CnnNeuronReluNode |
 | MPSCNNPoolingMaxNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | CnnPoolingMaxNode |
 | MPSCNNSoftMaxNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | CnnSoftMaxNode |
@@ -23,6 +27,7 @@ Methodology: top-level Objective-C interfaces/protocols, enum/options/struct typ
 | MPSDataType | enum | MPSCore/MPSCoreTypes.h | data_type |
 | MPSDeviceOptions | options | MetalPerformanceShaders/MetalPerformanceShaders.h | device_options |
 | MPSGetPreferredDevice | function | MetalPerformanceShaders/MetalPerformanceShaders.h | preferred_device |
+| MPSGRUDescriptor | interface | MPSNeuralNetwork/MPSRNNLayer.h | GruDescriptor |
 | MPSHintTemporaryMemoryHighWaterMark | function | MetalPerformanceShaders/MetalPerformanceShaders.h | hint_temporary_memory_high_water_mark |
 | MPSImage | interface | MPSCore/MPSImage.h | Image |
 | MPSImageAdd | interface | MPSImage/MPSImageMath.h | ImageAdd, ImageScaleAndAdd |
@@ -48,21 +53,41 @@ Methodology: top-level Objective-C interfaces/protocols, enum/options/struct typ
 | MPSIntersectionDataType | enum | MPSRayIntersector/MPSRayIntersector.h | intersection_data_type |
 | MPSIntersectionType | enum | MPSRayIntersector/MPSRayIntersector.h | intersection_type |
 | MPSKernelOptions | options | MPSCore/MPSCoreTypes.h | kernel_options |
+| MPSLSTMDescriptor | interface | MPSNeuralNetwork/MPSRNNLayer.h | LstmDescriptor |
 | MPSMatrix | interface | MPSCore/MPSMatrix.h | Matrix |
 | MPSMatrixDescriptor | interface | MPSCore/MPSMatrix.h | MatrixDescriptor |
 | MPSMatrixMultiplication | interface | MPSMatrix/MPSMatrixMultiplication.h | MatrixMultiplication |
 | MPSNDArray | interface | MPSCore/MPSNDArray.h | NDArray |
 | MPSNDArrayDescriptor | interface | MPSCore/MPSNDArray.h | NDArrayDescriptor |
 | MPSNDArrayIdentity | interface | MPSNDArray/MPSNDArrayIdentity.h | NDArrayIdentity |
+| MPSNDArrayMatrixMultiplication | interface | MPSNDArray/MPSNDArrayMatrixMultiplication.h | NDArrayMatrixMultiplication |
+| MPSNNConvolutionAccumulatorPrecisionOption | options | MPSNeuralNetwork/MPSNeuralNetworkTypes.h | cnn_accumulator_precision_option |
 | MPSNNGraph | interface | MPSNeuralNetwork/MPSNNGraph.h | NNGraph |
 | MPSNNImageNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | NNImageNode |
+| MPSNNOptimizer | interface | MPSNeuralNetwork/MPSNNOptimizers.h | NNOptimizer |
+| MPSNNOptimizerAdam | interface | MPSNeuralNetwork/MPSNNOptimizers.h | NNOptimizerAdam |
+| MPSNNOptimizerDescriptor | interface | MPSNeuralNetwork/MPSNNOptimizers.h | NNOptimizerDescriptor |
+| MPSNNOptimizerRMSProp | interface | MPSNeuralNetwork/MPSNNOptimizers.h | NNOptimizerRmsProp |
+| MPSNNOptimizerStochasticGradientDescent | interface | MPSNeuralNetwork/MPSNNOptimizers.h | NNOptimizerStochasticGradientDescent |
+| MPSNNRegularizationType | enum | MPSNeuralNetwork/MPSNNOptimizers.h | nn_regularization_type |
 | MPSPredicate | interface | MPSCore/MPSCommandBuffer.h | Predicate |
+| MPSRNNBidirectionalCombineMode | enum | MPSNeuralNetwork/MPSRNNLayer.h | rnn_bidirectional_combine_mode |
+| MPSRNNDescriptor | interface | MPSNeuralNetwork/MPSRNNLayer.h | RnnDescriptor |
+| MPSRNNImageInferenceLayer | interface | MPSNeuralNetwork/MPSRNNLayer.h | RnnImageInferenceLayer |
+| MPSRNNRecurrentImageState | interface | MPSNeuralNetwork/MPSRNNLayer.h | RnnRecurrentImageState |
 | MPSRNNSequenceDirection | enum | MPSNeuralNetwork/MPSRNNLayer.h | rnn_sequence_direction |
 | MPSRNNSingleGateDescriptor | interface | MPSNeuralNetwork/MPSRNNLayer.h | RnnSingleGateDescriptor |
 | MPSRayDataType | enum | MPSRayIntersector/MPSRayIntersector.h | ray_data_type |
 | MPSSVGF | interface | MPSRayIntersector/MPSSVGF.h | SVGF |
 | MPSScaleTransform | struct | MPSCore/MPSCoreTypes.h | ScaleTransform |
 | MPSSetHeapCacheDuration | function | MetalPerformanceShaders/MetalPerformanceShaders.h | set_heap_cache_duration |
+| MPSState | interface | MPSCore/MPSState.h | State |
+| MPSStateBatchIncrementReadCount | function | MPSCore/MPSState.h | state_batch_increment_read_count |
+| MPSStateBatchResourceSize | function | MPSCore/MPSState.h | state_batch_resource_size |
+| MPSStateBatchSynchronize | function | MPSCore/MPSState.h | state_batch_synchronize |
+| MPSStateResourceList | interface | MPSCore/MPSState.h | StateResourceList |
+| MPSStateResourceType | enum | MPSCore/MPSState.h | state_resource_type |
+| MPSStateTextureInfo | struct | MPSCore/MPSState.h | StateTextureInfo |
 | MPSSupportsMTLDevice | function | MetalPerformanceShaders/MetalPerformanceShaders.h | supports_mtl_device |
 | MPSVector | interface | MPSCore/MPSMatrix.h | Vector |
 | MPSVectorDescriptor | interface | MPSCore/MPSMatrix.h | VectorDescriptor |
@@ -93,9 +118,7 @@ Methodology: top-level Objective-C interfaces/protocols, enum/options/struct typ
 | MPSCNNBinaryFullyConnected | interface | MPSNeuralNetwork/MPSCNNConvolution.h | — |
 | MPSCNNBinaryFullyConnectedNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | — |
 | MPSCNNBinaryKernel | interface | MPSNeuralNetwork/MPSCNNKernel.h | — |
-| MPSCNNConvolution | interface | MPSNeuralNetwork/MPSCNNConvolution.h | Only MPSCNNConvolutionDescriptor is wrapped; executable convolution/filter kernels are not. |
 | MPSCNNConvolutionDataSource | protocol | MPSNeuralNetwork/MPSCNNConvolution.h | — |
-| MPSCNNConvolutionFlags | enum | MPSNeuralNetwork/MPSNeuralNetworkTypes.h | — |
 | MPSCNNConvolutionGradient | interface | MPSNeuralNetwork/MPSCNNConvolution.h | — |
 | MPSCNNConvolutionGradientNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | — |
 | MPSCNNConvolutionGradientOption | options | MPSNeuralNetwork/MPSCNNConvolution.h | — |
@@ -106,8 +129,6 @@ Methodology: top-level Objective-C interfaces/protocols, enum/options/struct typ
 | MPSCNNConvolutionTransposeGradientState | interface | MPSNeuralNetwork/MPSCNNConvolution.h | — |
 | MPSCNNConvolutionTransposeGradientStateNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | — |
 | MPSCNNConvolutionTransposeNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | — |
-| MPSCNNConvolutionWeightsAndBiasesState | interface | MPSNeuralNetwork/MPSCNNConvolution.h | — |
-| MPSCNNConvolutionWeightsLayout | enum | MPSNeuralNetwork/MPSCNNConvolution.h | — |
 | MPSCNNCrossChannelNormalization | interface | MPSNeuralNetwork/MPSCNNNormalization.h | — |
 | MPSCNNCrossChannelNormalizationGradient | interface | MPSNeuralNetwork/MPSCNNNormalization.h | — |
 | MPSCNNCrossChannelNormalizationGradientNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | — |
@@ -238,7 +259,6 @@ Methodology: top-level Objective-C interfaces/protocols, enum/options/struct typ
 | MPSDimensionSlice | struct | MPSCore/MPSCoreTypes.h | — |
 | MPSFloatDataTypeBit | enum | MPSCore/MPSCoreTypes.h | — |
 | MPSFloatDataTypeShift | enum | MPSCore/MPSCoreTypes.h | — |
-| MPSGRUDescriptor | interface | MPSNeuralNetwork/MPSRNNLayer.h | — |
 | MPSGetImageType | function | MPSCore/MPSKernelTypes.h | — |
 | MPSHandle | protocol | MPSNeuralNetwork/MPSNNGraphNodes.h | — |
 | MPSHeapProvider | protocol | MPSCore/MPSCommandBuffer.h | — |
@@ -294,7 +314,6 @@ Methodology: top-level Objective-C interfaces/protocols, enum/options/struct typ
 | MPSImageType | enum | MPSCore/MPSKernelTypes.h | — |
 | MPSKernel | interface | MPSCore/MPSKernel.h | Concrete wrappers surface selected kernel behavior, but there is no direct base-class wrapper. |
 | MPSKeyedUnarchiver | interface | MPSCore/MPSKeyedUnarchiver.h | — |
-| MPSLSTMDescriptor | interface | MPSNeuralNetwork/MPSRNNLayer.h | — |
 | MPSMatrixBatchNormalization | interface | MPSNeuralNetwork/MPSMatrixBatchNormalization.h | — |
 | MPSMatrixBatchNormalizationGradient | interface | MPSNeuralNetwork/MPSMatrixBatchNormalization.h | — |
 | MPSMatrixBinaryKernel | interface | MPSMatrix/MPSMatrixTypes.h | — |
@@ -336,7 +355,6 @@ Methodology: top-level Objective-C interfaces/protocols, enum/options/struct typ
 | MPSNDArrayGradientState | interface | MPSNDArray/MPSNDArrayGradientState.h | — |
 | MPSNDArrayLUTDequantize | interface | MPSNDArray/MPSNDArrayQuantizedMatrixMultiplication.h | — |
 | MPSNDArrayLUTQuantizationDescriptor | interface | MPSNDArray/MPSNDArrayQuantization.h | — |
-| MPSNDArrayMatrixMultiplication | interface | MPSNDArray/MPSNDArrayMatrixMultiplication.h | NDArray reshape is wrapped, but NDArray compute kernels are still absent. |
 | MPSNDArrayMultiaryBase | interface | MPSNDArray/MPSNDArrayKernel.h | — |
 | MPSNDArrayMultiaryGradientKernel | interface | MPSNDArray/MPSNDArrayKernel.h | — |
 | MPSNDArrayMultiaryKernel | interface | MPSNDArray/MPSNDArrayKernel.h | — |
@@ -361,7 +379,6 @@ Methodology: top-level Objective-C interfaces/protocols, enum/options/struct typ
 | MPSNNComparisonType | options | MPSNeuralNetwork/MPSCNNMath.h | — |
 | MPSNNConcatenationGradientNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | — |
 | MPSNNConcatenationNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | — |
-| MPSNNConvolutionAccumulatorPrecisionOption | options | MPSNeuralNetwork/MPSNeuralNetworkTypes.h | — |
 | MPSNNCropAndResizeBilinear | interface | MPSNeuralNetwork/MPSNNResize.h | — |
 | MPSNNDefaultPadding | interface | MPSNeuralNetwork/MPSNeuralNetworkTypes.h | — |
 | MPSNNDivisionNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | — |
@@ -390,11 +407,6 @@ Methodology: top-level Objective-C interfaces/protocols, enum/options/struct typ
 | MPSNNMultiplicationGradientNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | — |
 | MPSNNMultiplicationNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | — |
 | MPSNNNeuronDescriptor | interface | MPSNeuralNetwork/MPSCNNNeuron.h | — |
-| MPSNNOptimizer | interface | MPSNeuralNetwork/MPSNNOptimizers.h | Graph optimizer/training APIs are not wrapped. |
-| MPSNNOptimizerAdam | interface | MPSNeuralNetwork/MPSNNOptimizers.h | — |
-| MPSNNOptimizerDescriptor | interface | MPSNeuralNetwork/MPSNNOptimizers.h | — |
-| MPSNNOptimizerRMSProp | interface | MPSNeuralNetwork/MPSNNOptimizers.h | — |
-| MPSNNOptimizerStochasticGradientDescent | interface | MPSNeuralNetwork/MPSNNOptimizers.h | — |
 | MPSNNPad | interface | MPSNeuralNetwork/MPSNNReshape.h | — |
 | MPSNNPadGradient | interface | MPSNeuralNetwork/MPSNNReshape.h | — |
 | MPSNNPadGradientNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | — |
@@ -435,7 +447,6 @@ Methodology: top-level Objective-C interfaces/protocols, enum/options/struct typ
 | MPSNNReductionRowSumNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | — |
 | MPSNNReductionSpatialMeanGradientNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | — |
 | MPSNNReductionSpatialMeanNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | — |
-| MPSNNRegularizationType | enum | MPSNeuralNetwork/MPSNNOptimizers.h | — |
 | MPSNNReshape | interface | MPSNeuralNetwork/MPSNNReshape.h | — |
 | MPSNNReshapeGradient | interface | MPSNeuralNetwork/MPSNNReshape.h | — |
 | MPSNNReshapeGradientNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | — |
@@ -451,14 +462,10 @@ Methodology: top-level Objective-C interfaces/protocols, enum/options/struct typ
 | MPSNNUnaryReductionNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | — |
 | MPSOrigin | struct | MPSCore/MPSCoreTypes.h | — |
 | MPSPurgeableState | enum | MPSCore/MPSImage.h | — |
-| MPSRNNBidirectionalCombineMode | enum | MPSNeuralNetwork/MPSRNNLayer.h | — |
-| MPSRNNDescriptor | interface | MPSNeuralNetwork/MPSRNNLayer.h | — |
-| MPSRNNImageInferenceLayer | interface | MPSNeuralNetwork/MPSRNNLayer.h | Only MPSRNNSingleGateDescriptor is wrapped; RNN execution layers are absent. |
 | MPSRNNMatrixId | enum | MPSNeuralNetwork/MPSRNNLayer.h | — |
 | MPSRNNMatrixInferenceLayer | interface | MPSNeuralNetwork/MPSRNNLayer.h | Only descriptor coverage exists; matrix RNN execution layers are absent. |
 | MPSRNNMatrixTrainingLayer | interface | MPSNeuralNetwork/MPSRNNLayer.h | — |
 | MPSRNNMatrixTrainingState | interface | MPSNeuralNetwork/MPSRNNLayer.h | — |
-| MPSRNNRecurrentImageState | interface | MPSNeuralNetwork/MPSRNNLayer.h | — |
 | MPSRNNRecurrentMatrixState | interface | MPSNeuralNetwork/MPSRNNLayer.h | — |
 | MPSRectNoClip | constant | MPSCore/MPSCoreTypes.h | — |
 | MPSRegion | struct | MPSCore/MPSCoreTypes.h | — |
@@ -466,13 +473,6 @@ Methodology: top-level Objective-C interfaces/protocols, enum/options/struct typ
 | MPSSVGFDenoiser | interface | MPSRayIntersector/MPSSVGF.h | — |
 | MPSSVGFTextureAllocator | protocol | MPSRayIntersector/MPSSVGF.h | — |
 | MPSSize | struct | MPSCore/MPSCoreTypes.h | — |
-| MPSState | interface | MPSCore/MPSState.h | No wrapper for state objects or state batch helpers. |
-| MPSStateBatchIncrementReadCount | function | MPSCore/MPSState.h | — |
-| MPSStateBatchResourceSize | function | MPSCore/MPSState.h | — |
-| MPSStateBatchSynchronize | function | MPSCore/MPSState.h | — |
-| MPSStateResourceList | interface | MPSCore/MPSState.h | — |
-| MPSStateResourceType | enum | MPSCore/MPSState.h | — |
-| MPSStateTextureInfo | struct | MPSCore/MPSState.h | — |
 | MPSTemporalAA | interface | MPSRayIntersector/MPSTemporalAA.h | — |
 | MPSTemporalWeighting | enum | MPSRayIntersector/MPSSVGF.h | — |
 | MPSTemporaryImage | interface | MPSCore/MPSImage.h | — |

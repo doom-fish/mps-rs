@@ -1,6 +1,7 @@
 use core::ffi::c_void;
 
 extern "C" {
+    pub fn mps_object_retain(handle: *mut c_void) -> *mut c_void;
     pub fn mps_object_release(handle: *mut c_void);
 
     pub fn mps_supports_mtl_device(device_handle: *mut c_void) -> bool;

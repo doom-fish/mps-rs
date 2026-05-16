@@ -240,3 +240,84 @@ impl NDArrayIdentity {
         !ptr.is_null()
     }
 }
+
+opaque_handle!(NDArrayMatrixMultiplication);
+impl NDArrayMatrixMultiplication {
+    #[must_use]
+    pub fn new(device: &MetalDevice, source_count: usize) -> Option<Self> {
+        let ptr = unsafe { ffi::mps_ndarray_matrix_multiplication_new(device.as_ptr(), source_count) };
+        if ptr.is_null() {
+            None
+        } else {
+            Some(Self { ptr })
+        }
+    }
+
+    #[must_use]
+    pub fn alpha(&self) -> f64 {
+        unsafe { ffi::mps_ndarray_matrix_multiplication_alpha(self.ptr) }
+    }
+
+    pub fn set_alpha(&self, alpha: f64) {
+        unsafe { ffi::mps_ndarray_matrix_multiplication_set_alpha(self.ptr, alpha) };
+    }
+
+    #[must_use]
+    pub fn beta(&self) -> f64 {
+        unsafe { ffi::mps_ndarray_matrix_multiplication_beta(self.ptr) }
+    }
+
+    pub fn set_beta(&self, beta: f64) {
+        unsafe { ffi::mps_ndarray_matrix_multiplication_set_beta(self.ptr, beta) };
+    }
+
+    #[must_use]
+    pub fn encode(
+        &self,
+        command_buffer: &MetalCommandBuffer,
+        source_arrays: &[&NDArray],
+    ) -> Option<NDArray> {
+        let handles: Vec<_> = source_arrays.iter().map(|array| array.as_ptr()).collect();
+        let handles_ptr = if handles.is_empty() {
+            ptr::null()
+        } else {
+            handles.as_ptr()
+        };
+        let ptr = unsafe {
+            ffi::mps_ndarray_matrix_multiplication_encode(
+                self.ptr,
+                command_buffer.as_ptr(),
+                source_arrays.len(),
+                handles_ptr,
+            )
+        };
+        if ptr.is_null() {
+            None
+        } else {
+            Some(NDArray { ptr })
+        }
+    }
+
+    pub fn encode_to_destination(
+        &self,
+        command_buffer: &MetalCommandBuffer,
+        source_arrays: &[&NDArray],
+        destination: &NDArray,
+    ) {
+        let handles: Vec<_> = source_arrays.iter().map(|array| array.as_ptr()).collect();
+        let handles_ptr = if handles.is_empty() {
+            ptr::null()
+        } else {
+            handles.as_ptr()
+        };
+        unsafe {
+            ffi::mps_ndarray_matrix_multiplication_encode_to_destination(
+                self.ptr,
+                command_buffer.as_ptr(),
+                source_arrays.len(),
+                handles_ptr,
+                destination.as_ptr(),
+            );
+        };
+    }
+}

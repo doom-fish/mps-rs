@@ -53,4 +53,26 @@ extern "C" {
         dimension_sizes: *const usize,
         destination_array_handle: *mut c_void,
     ) -> *mut c_void;
+
+    pub fn mps_ndarray_matrix_multiplication_new(
+        device_handle: *mut c_void,
+        source_count: usize,
+    ) -> *mut c_void;
+    pub fn mps_ndarray_matrix_multiplication_alpha(handle: *mut c_void) -> f64;
+    pub fn mps_ndarray_matrix_multiplication_set_alpha(handle: *mut c_void, alpha: f64);
+    pub fn mps_ndarray_matrix_multiplication_beta(handle: *mut c_void) -> f64;
+    pub fn mps_ndarray_matrix_multiplication_set_beta(handle: *mut c_void, beta: f64);
+    pub fn mps_ndarray_matrix_multiplication_encode(
+        handle: *mut c_void,
+        command_buffer_handle: *mut c_void,
+        source_count: usize,
+        source_array_handles: *const *mut c_void,
+    ) -> *mut c_void;
+    pub fn mps_ndarray_matrix_multiplication_encode_to_destination(
+        handle: *mut c_void,
+        command_buffer_handle: *mut c_void,
+        source_count: usize,
+        source_array_handles: *const *mut c_void,
+        destination_array_handle: *mut c_void,
+    );
 }

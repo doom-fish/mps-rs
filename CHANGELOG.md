@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.1 - 2026-05-16
+
+- Added `State`, `StateResourceList`, `StateTextureInfo`, and state batch helpers for `MPSState`
+- Added `NDArrayMatrixMultiplication` plus smoke/example coverage for padded NDArray matrix layouts
+- Added executable neural bindings for `CnnConvolution`, `CnnConvolutionWeightsAndBiasesState`, optimizer descriptors/optimizers, and image RNN inference/state APIs
+- Added new smoke tests and examples covering NDArray matrix multiply, optimizer/state workflows, convolution, and RNN image inference
+
 ## 0.2.0 - 2026-05-16
 
 - Added core device helpers plus `Predicate` and `MpsCommandBuffer`

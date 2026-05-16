@@ -1,6 +1,6 @@
 [package]
 name = "apple-mps"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/doom-fish/mps-rs"
@@ -65,3 +65,15 @@ name = "04_ray_intersection"
 
 [[example]]
 name = "05_nn_graph_relu"
+
+[[example]]
+name = "06_ndarray_matrix_multiplication"
+
+[[example]]
+name = "07_optimizer_and_state"
+
+[[example]]
+name = "08_cnn_convolution"
+
+[[example]]
+name = "09_rnn_image_inference"

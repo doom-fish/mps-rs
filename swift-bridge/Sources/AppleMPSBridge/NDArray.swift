@@ -234,3 +234,79 @@ public func mps_ndarray_identity_reshape(
     }
     return mps_retain(result)
 }
+
+@_cdecl("mps_ndarray_matrix_multiplication_new")
+public func mps_ndarray_matrix_multiplication_new(
+    _ deviceHandle: UnsafeMutableRawPointer?,
+    _ sourceCount: Int
+) -> UnsafeMutableRawPointer? {
+    guard let device: MTLDevice = mps_borrow(deviceHandle) else { return nil }
+    if #available(macOS 10.15, *) {
+        return mps_retain(MPSNDArrayMatrixMultiplication(device: device, sourceCount: sourceCount))
+    }
+    return nil
+}
+
+@_cdecl("mps_ndarray_matrix_multiplication_alpha")
+public func mps_ndarray_matrix_multiplication_alpha(_ handle: UnsafeMutableRawPointer?) -> Double {
+    guard let kernel: MPSNDArrayMatrixMultiplication = mps_borrow(handle) else { return 0.0 }
+    return kernel.alpha
+}
+
+@_cdecl("mps_ndarray_matrix_multiplication_set_alpha")
+public func mps_ndarray_matrix_multiplication_set_alpha(
+    _ handle: UnsafeMutableRawPointer?,
+    _ alpha: Double
+) {
+    guard let kernel: MPSNDArrayMatrixMultiplication = mps_borrow(handle) else { return }
+    kernel.alpha = alpha
+}
+
+@_cdecl("mps_ndarray_matrix_multiplication_beta")
+public func mps_ndarray_matrix_multiplication_beta(_ handle: UnsafeMutableRawPointer?) -> Double {
+    guard let kernel: MPSNDArrayMatrixMultiplication = mps_borrow(handle) else { return 0.0 }
+    return kernel.beta
+}
+
+@_cdecl("mps_ndarray_matrix_multiplication_set_beta")
+public func mps_ndarray_matrix_multiplication_set_beta(
+    _ handle: UnsafeMutableRawPointer?,
+    _ beta: Double
+) {
+    guard let kernel: MPSNDArrayMatrixMultiplication = mps_borrow(handle) else { return }
+    kernel.beta = beta
+}
+
+@_cdecl("mps_ndarray_matrix_multiplication_encode")
+public func mps_ndarray_matrix_multiplication_encode(
+    _ handle: UnsafeMutableRawPointer?,
+    _ commandBufferHandle: UnsafeMutableRawPointer?,
+    _ sourceCount: Int,
+    _ sourceArrayHandles: UnsafePointer<UnsafeMutableRawPointer?>?
+) -> UnsafeMutableRawPointer? {
+    guard let kernel: MPSNDArrayMatrixMultiplication = mps_borrow(handle),
+          let commandBuffer: MTLCommandBuffer = mps_borrow(commandBufferHandle),
+          let sourceArrays: [MPSNDArray] = mps_borrow_array(sourceArrayHandles, count: sourceCount)
+    else {
+        return nil
+    }
+    return mps_retain(kernel.encode(to: commandBuffer, sourceArrays: sourceArrays))
+}
+
+@_cdecl("mps_ndarray_matrix_multiplication_encode_to_destination")
+public func mps_ndarray_matrix_multiplication_encode_to_destination(
+    _ handle: UnsafeMutableRawPointer?,
+    _ commandBufferHandle: UnsafeMutableRawPointer?,
+    _ sourceCount: Int,
+    _ sourceArrayHandles: UnsafePointer<UnsafeMutableRawPointer?>?,
+    _ destinationArrayHandle: UnsafeMutableRawPointer?
+) {
+    guard let kernel: MPSNDArrayMatrixMultiplication = mps_borrow(handle),
+          let commandBuffer: MTLCommandBuffer = mps_borrow(commandBufferHandle),
+          let sourceArrays: [MPSNDArray] = mps_borrow_array(sourceArrayHandles, count: sourceCount),
+          let destinationArray: MPSNDArray = mps_borrow(destinationArrayHandle)
+    else {
+        return
+    }
+    kernel.encode(to: commandBuffer, sourceArrays: sourceArrays, destinationArray: destinationArray)
+}

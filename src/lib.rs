@@ -14,6 +14,7 @@ pub mod matrix;
 pub mod ndarray;
 pub mod neural;
 pub mod ray;
+pub mod state;
 
 pub use crate::core::{
     device_options, hint_temporary_memory_high_water_mark, preferred_device,
@@ -35,13 +36,22 @@ pub use crate::matrix::{
     data_type, data_type_size, Matrix, MatrixDescriptor, MatrixMultiplication,
     MatrixMultiplicationDescriptor, Vector, VectorDescriptor,
 };
-pub use crate::ndarray::{NDArray, NDArrayDescriptor, NDArrayIdentity};
+pub use crate::ndarray::{NDArray, NDArrayDescriptor, NDArrayIdentity, NDArrayMatrixMultiplication};
 pub use crate::neural::{
-    rnn_sequence_direction, CnnConvolutionDescriptor, CnnNeuronReluNode, CnnPoolingMaxNode,
-    CnnSoftMaxNode, CnnUpsamplingNearestNode, NNGraph, NNImageNode, RnnSingleGateDescriptor,
+    cnn_accumulator_precision_option, cnn_convolution_flags, cnn_convolution_weights_layout,
+    nn_regularization_type, rnn_bidirectional_combine_mode, rnn_sequence_direction,
+    CnnConvolution, CnnConvolutionDescriptor, CnnConvolutionWeightsAndBiasesState,
+    CnnNeuronReluNode, CnnPoolingMaxNode, CnnSoftMaxNode, CnnUpsamplingNearestNode,
+    GruDescriptor, LstmDescriptor, NNGraph, NNImageNode, NNOptimizer, NNOptimizerAdam,
+    NNOptimizerDescriptor, NNOptimizerRmsProp, NNOptimizerStochasticGradientDescent,
+    RnnDescriptor, RnnImageInferenceLayer, RnnRecurrentImageState, RnnSingleGateDescriptor,
 };
 pub use crate::ray::{
     acceleration_structure_status, acceleration_structure_usage, cull_mode, intersection_data_type,
     intersection_type, polygon_type, ray_data_type, winding, PolygonAccelerationStructure,
     RayIntersector, SVGF,
+};
+pub use crate::state::{
+    state_batch_increment_read_count, state_batch_resource_size, state_batch_synchronize,
+    state_resource_type, State, StateResourceList, StateTextureInfo,
 };

@@ -29,7 +29,7 @@ let command_buffer = queue.new_command_buffer().expect("command buffer");
 blur.encode_image(&command_buffer, &src, &dst);
 ```
 
-## v0.2 surface
+## v0.2.1 surface
 
 - Core helpers:
   - `supports_mtl_device`, `preferred_device`, `hint_temporary_memory_high_water_mark`, `set_heap_cache_duration`
@@ -53,14 +53,19 @@ blur.encode_image(&command_buffer, &src, &dst);
 - Matrix/vector:
   - `MatrixDescriptor`, `VectorDescriptor`, `MatrixMultiplicationDescriptor`, `Matrix`, `Vector`, and `MatrixMultiplication`
 - `NDArray`:
-  - `NDArrayDescriptor`, `NDArray`, and `NDArrayIdentity`
+  - `NDArrayDescriptor`, `NDArray`, `NDArrayIdentity`, and `NDArrayMatrixMultiplication`
+- State:
+  - `State`, `StateResourceList`, `StateTextureInfo`
+  - `state_batch_increment_read_count`, `state_batch_resource_size`, `state_batch_synchronize`
 - Ray tracing / denoising:
   - `PolygonAccelerationStructure`, `RayIntersector`, and `SVGF`
-- Neural graph / descriptors:
+- Neural / optimizer / RNN:
   - `NNImageNode`, `NNGraph`
   - `CnnNeuronReluNode`, `CnnPoolingMaxNode`, `CnnSoftMaxNode`, `CnnUpsamplingNearestNode`
-  - `CnnConvolutionDescriptor`, `RnnSingleGateDescriptor`
-- Shared constants for `MPSKernelOptions`, `MPSImageEdgeMode`, `MPSImageFeatureChannelFormat`, `MPSDataType`, `MPSDataLayout`, and new ray/RNN enums
+  - `CnnConvolutionDescriptor`, `CnnConvolution`, `CnnConvolutionWeightsAndBiasesState`
+  - `NNOptimizerDescriptor`, `NNOptimizer`, `NNOptimizerStochasticGradientDescent`, `NNOptimizerRmsProp`, `NNOptimizerAdam`
+  - `RnnDescriptor`, `RnnSingleGateDescriptor`, `GruDescriptor`, `LstmDescriptor`, `RnnImageInferenceLayer`, `RnnRecurrentImageState`
+- Shared constants for `MPSKernelOptions`, `MPSImageEdgeMode`, `MPSImageFeatureChannelFormat`, `MPSDataType`, `MPSDataLayout`, plus convolution / optimizer / RNN / state enums
 
 See [`COVERAGE.md`](COVERAGE.md) for the Wave-C audit and the implemented/partial matrix.
 
@@ -73,4 +78,8 @@ cargo run --example 02_matrix_multiply
 cargo run --example 03_ndarray_identity
 cargo run --example 04_ray_intersection
 cargo run --example 05_nn_graph_relu
+cargo run --example 06_ndarray_matrix_multiplication
+cargo run --example 07_optimizer_and_state
+cargo run --example 08_cnn_convolution
+cargo run --example 09_rnn_image_inference
 ```
