@@ -1,0 +1,57 @@
+[package]
+name = "apple-mps"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+homepage = "https://github.com/doom-fish/mps-rs"
+repository = "https://github.com/doom-fish/mps-rs"
+description = "Safe Rust bindings for Apple's MetalPerformanceShaders framework on macOS, backed by a Swift bridge"
+authors = ["Per Johansson <per@doom.fish>"]
+keywords = ["mps", "metal", "gpu", "macos", "apple"]
+categories = ["api-bindings", "os::macos-apis", "graphics"]
+rust-version = "1.76"
+readme = "README.md"
+build = "build.rs"
+include = [
+    "src/**/*",
+    "swift-bridge/Package.swift",
+    "swift-bridge/Sources/**/*",
+    "examples/**/*",
+    "build.rs",
+    "Cargo.toml",
+    "README.md",
+    "LICENSE-*",
+    "CHANGELOG.md",
+]
+
+[lints.rust]
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+cargo = { level = "warn", priority = -1 }
+
+[lib]
+name = "apple_mps"
+crate-type = ["lib"]
+
+[dependencies]
+apple-metal = "0.5.1"
+
+[package.metadata.docs.rs]
+default-target = "aarch64-apple-darwin"
+targets = ["aarch64-apple-darwin", "x86_64-apple-darwin"]
+rustdoc-args = ["--cfg", "docsrs"]
+
+[badges]
+maintenance = { status = "actively-developed" }
+
+[profile.release]
+debug = "full"
+strip = "none"
+
+[[example]]
+name = "01_blur_image"
+
+[[example]]
+name = "02_matrix_multiply"
