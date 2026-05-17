@@ -216,6 +216,8 @@ impl Matrix {
 }
 
 opaque_handle!(Vector);
+pub use crate::generated::matrix::*;
+
 impl Vector {
     /// Wrap an existing `MTLBuffer` as an `MPSVector`.
     #[must_use]

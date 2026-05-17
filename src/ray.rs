@@ -64,6 +64,8 @@ pub mod winding {
     pub const COUNTER_CLOCKWISE: usize = 1;
 }
 
+pub use crate::generated::ray::*;
+
 macro_rules! opaque_handle {
     ($name:ident) => {
         pub struct $name {

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.2 - 2026-05-16
+
+- Closed the MacOSX26.2 umbrella audit to 100% by exposing every remaining public symbol as an executable wrapper, raw-value mirror, or opaque retained handle.
+- Added exhaustive `MPSCNN*`, `MPSRNN*`, `MPSNDArray*`, `MPSImage*`, `MPSMatrix*`, `MPSNN*`, `MPSAccelerationStructure*`, `MPSRayIntersector*`, and `MPSState*` family coverage, including deprecated ray-tracing families.
+- Added direct image bridge helpers for `MPSGetImageType`, `MPSImageBatchIncrementReadCount`, `MPSImageBatchIterate`, `MPSImageBatchResourceSize`, `MPSImageBatchSynchronize`, and `MPSRectNoClip`.
+- Added exhaustive compile/runtime smoke coverage for the generated surface mirrors.
+
 ## 0.2.1 - 2026-05-16
 
 - Added `State`, `StateResourceList`, `StateTextureInfo`, and state batch helpers for `MPSState`

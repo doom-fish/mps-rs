@@ -11,6 +11,14 @@ extern "C" {
         bytes: usize,
     );
     pub fn mps_set_heap_cache_duration(command_buffer_handle: *mut c_void, seconds: f64);
+    pub fn mps_rect_no_clip(
+        x: *mut usize,
+        y: *mut usize,
+        z: *mut usize,
+        width: *mut usize,
+        height: *mut usize,
+        depth: *mut usize,
+    );
 
     pub fn mps_predicate_new_with_buffer(buffer_handle: *mut c_void, offset: usize) -> *mut c_void;
     pub fn mps_predicate_new_with_device(device_handle: *mut c_void) -> *mut c_void;

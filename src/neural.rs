@@ -41,6 +41,8 @@ pub mod nn_regularization_type {
     pub const L2: usize = 2;
 }
 
+pub use crate::generated::neural::*;
+
 macro_rules! opaque_handle {
     ($name:ident) => {
         pub struct $name {
@@ -608,7 +610,12 @@ impl CnnConvolution {
         unsafe { ffi::mps_cnn_convolution_set_accumulator_precision_option(self.ptr, value) };
     }
 
-    pub fn encode_image(&self, command_buffer: &CommandBuffer, source: &Image, destination: &Image) {
+    pub fn encode_image(
+        &self,
+        command_buffer: &CommandBuffer,
+        source: &Image,
+        destination: &Image,
+    ) {
         unsafe {
             ffi::mps_cnn_convolution_encode_image(
                 self.ptr,
@@ -625,7 +632,9 @@ impl CnnConvolutionWeightsAndBiasesState {
     #[must_use]
     pub fn new_with_buffers(weights: &MetalBuffer, biases: Option<&MetalBuffer>) -> Option<Self> {
         let biases_ptr = biases.map_or(ptr::null_mut(), MetalBuffer::as_ptr);
-        let ptr = unsafe { ffi::mps_cnn_convolution_weights_and_biases_state_new(weights.as_ptr(), biases_ptr) };
+        let ptr = unsafe {
+            ffi::mps_cnn_convolution_weights_and_biases_state_new(weights.as_ptr(), biases_ptr)
+        };
         if ptr.is_null() {
             None
         } else {
@@ -1163,7 +1172,8 @@ impl_rnn_descriptor_common!(GruDescriptor);
 impl GruDescriptor {
     #[must_use]
     pub fn new(input_feature_channels: usize, output_feature_channels: usize) -> Option<Self> {
-        let ptr = unsafe { ffi::mps_gru_descriptor_new(input_feature_channels, output_feature_channels) };
+        let ptr =
+            unsafe { ffi::mps_gru_descriptor_new(input_feature_channels, output_feature_channels) };
         if ptr.is_null() {
             None
         } else {
@@ -1200,7 +1210,9 @@ impl_rnn_descriptor_common!(LstmDescriptor);
 impl LstmDescriptor {
     #[must_use]
     pub fn new(input_feature_channels: usize, output_feature_channels: usize) -> Option<Self> {
-        let ptr = unsafe { ffi::mps_lstm_descriptor_new(input_feature_channels, output_feature_channels) };
+        let ptr = unsafe {
+            ffi::mps_lstm_descriptor_new(input_feature_channels, output_feature_channels)
+        };
         if ptr.is_null() {
             None
         } else {
@@ -1263,7 +1275,9 @@ opaque_handle!(RnnRecurrentImageState);
 impl RnnRecurrentImageState {
     #[must_use]
     pub fn recurrent_output_image_for_layer_index(&self, layer_index: usize) -> Option<Image> {
-        let ptr = unsafe { ffi::mps_rnn_recurrent_image_state_recurrent_output_image(self.ptr, layer_index) };
+        let ptr = unsafe {
+            ffi::mps_rnn_recurrent_image_state_recurrent_output_image(self.ptr, layer_index)
+        };
         if ptr.is_null() {
             None
         } else {
@@ -1273,7 +1287,8 @@ impl RnnRecurrentImageState {
 
     #[must_use]
     pub fn memory_cell_image_for_layer_index(&self, layer_index: usize) -> Option<Image> {
-        let ptr = unsafe { ffi::mps_rnn_recurrent_image_state_memory_cell_image(self.ptr, layer_index) };
+        let ptr =
+            unsafe { ffi::mps_rnn_recurrent_image_state_memory_cell_image(self.ptr, layer_index) };
         if ptr.is_null() {
             None
         } else {
@@ -1286,7 +1301,8 @@ opaque_handle!(RnnImageInferenceLayer);
 impl RnnImageInferenceLayer {
     #[must_use]
     pub fn new(device: &MetalDevice, descriptor: &RnnDescriptor) -> Option<Self> {
-        let ptr = unsafe { ffi::mps_rnn_image_inference_layer_new(device.as_ptr(), descriptor.as_ptr()) };
+        let ptr =
+            unsafe { ffi::mps_rnn_image_inference_layer_new(device.as_ptr(), descriptor.as_ptr()) };
         if ptr.is_null() {
             None
         } else {
@@ -1296,7 +1312,10 @@ impl RnnImageInferenceLayer {
 
     #[must_use]
     pub fn new_stack(device: &MetalDevice, descriptors: &[&RnnDescriptor]) -> Option<Self> {
-        let handles: Vec<_> = descriptors.iter().map(|descriptor| descriptor.as_ptr()).collect();
+        let handles: Vec<_> = descriptors
+            .iter()
+            .map(|descriptor| descriptor.as_ptr())
+            .collect();
         let handles_ptr = if handles.is_empty() {
             ptr::null()
         } else {
@@ -1337,7 +1356,9 @@ impl RnnImageInferenceLayer {
     }
 
     pub fn set_recurrent_output_is_temporary(&self, value: bool) {
-        unsafe { ffi::mps_rnn_image_inference_layer_set_recurrent_output_is_temporary(self.ptr, value) };
+        unsafe {
+            ffi::mps_rnn_image_inference_layer_set_recurrent_output_is_temporary(self.ptr, value);
+        }
     }
 
     #[must_use]
@@ -1346,7 +1367,9 @@ impl RnnImageInferenceLayer {
     }
 
     pub fn set_store_all_intermediate_states(&self, value: bool) {
-        unsafe { ffi::mps_rnn_image_inference_layer_set_store_all_intermediate_states(self.ptr, value) };
+        unsafe {
+            ffi::mps_rnn_image_inference_layer_set_store_all_intermediate_states(self.ptr, value);
+        }
     }
 
     #[must_use]
@@ -1355,7 +1378,9 @@ impl RnnImageInferenceLayer {
     }
 
     pub fn set_bidirectional_combine_mode(&self, value: usize) {
-        unsafe { ffi::mps_rnn_image_inference_layer_set_bidirectional_combine_mode(self.ptr, value) };
+        unsafe {
+            ffi::mps_rnn_image_inference_layer_set_bidirectional_combine_mode(self.ptr, value);
+        }
     }
 
     #[must_use]
@@ -1370,7 +1395,10 @@ impl RnnImageInferenceLayer {
             return None;
         }
         let source_handles: Vec<_> = source_images.iter().map(|image| image.as_ptr()).collect();
-        let destination_handles: Vec<_> = destination_images.iter().map(|image| image.as_ptr()).collect();
+        let destination_handles: Vec<_> = destination_images
+            .iter()
+            .map(|image| image.as_ptr())
+            .collect();
         let source_ptr = if source_handles.is_empty() {
             ptr::null()
         } else {
@@ -1381,7 +1409,8 @@ impl RnnImageInferenceLayer {
         } else {
             destination_handles.as_ptr()
         };
-        let recurrent_input_ptr = recurrent_input_state.map_or(ptr::null_mut(), RnnRecurrentImageState::as_ptr);
+        let recurrent_input_ptr =
+            recurrent_input_state.map_or(ptr::null_mut(), RnnRecurrentImageState::as_ptr);
         let ptr = unsafe {
             ffi::mps_rnn_image_inference_layer_encode_sequence(
                 self.ptr,

@@ -64,6 +64,8 @@ pub fn hint_temporary_memory_high_water_mark(command_buffer: &MetalCommandBuffer
     unsafe { ffi::mps_hint_temporary_memory_high_water_mark(command_buffer.as_ptr(), bytes) };
 }
 
+pub use crate::generated::core::*;
+
 pub fn set_heap_cache_duration(command_buffer: &MetalCommandBuffer, seconds: f64) {
     unsafe { ffi::mps_set_heap_cache_duration(command_buffer.as_ptr(), seconds) };
 }

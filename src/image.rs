@@ -372,6 +372,8 @@ impl Image {
     }
 }
 
+pub use crate::generated::image::*;
+
 fn required_bytes(
     data_layout: usize,
     bytes_per_row: usize,

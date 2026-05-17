@@ -75,6 +75,48 @@ public func mps_image_pixel_format(_ handle: UnsafeMutableRawPointer?) -> UInt {
     return image.pixelFormat.rawValue
 }
 
+@_cdecl("mps_get_image_type")
+public func mps_get_image_type(_ handle: UnsafeMutableRawPointer?) -> UInt32 {
+    guard let image: MPSImage = mps_borrow(handle) else { return 0 }
+    return MPSGetImageType(image).rawValue
+}
+
+@_cdecl("mps_image_batch_increment_read_count")
+public func mps_image_batch_increment_read_count(
+    _ handles: UnsafePointer<UnsafeMutableRawPointer?>?,
+    _ count: Int,
+    _ amount: Int
+) -> Int {
+    guard let images: [MPSImage] = mps_borrow_array(handles, count: count) else { return 0 }
+    if images.isEmpty { return 0 }
+    return MPSImageBatchIncrementReadCount(images, amount)
+}
+
+@_cdecl("mps_image_batch_synchronize")
+public func mps_image_batch_synchronize(
+    _ handles: UnsafePointer<UnsafeMutableRawPointer?>?,
+    _ count: Int,
+    _ commandBufferHandle: UnsafeMutableRawPointer?
+) {
+    guard let images: [MPSImage] = mps_borrow_array(handles, count: count),
+          let commandBuffer: MTLCommandBuffer = mps_borrow(commandBufferHandle)
+    else {
+        return
+    }
+    if images.isEmpty { return }
+    MPSImageBatchSynchronize(images, commandBuffer)
+}
+
+@_cdecl("mps_image_batch_resource_size")
+public func mps_image_batch_resource_size(
+    _ handles: UnsafePointer<UnsafeMutableRawPointer?>?,
+    _ count: Int
+) -> Int {
+    guard let images: [MPSImage] = mps_borrow_array(handles, count: count) else { return 0 }
+    if images.isEmpty { return 0 }
+    return MPSImageBatchResourceSize(images)
+}
+
 @_cdecl("mps_image_read_bytes")
 public func mps_image_read_bytes(
     _ handle: UnsafeMutableRawPointer?,

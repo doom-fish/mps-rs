@@ -9,6 +9,7 @@ pub mod core;
 pub mod error;
 pub mod ffi;
 pub mod filters;
+mod generated;
 pub mod image;
 pub mod matrix;
 pub mod ndarray;
@@ -36,15 +37,17 @@ pub use crate::matrix::{
     data_type, data_type_size, Matrix, MatrixDescriptor, MatrixMultiplication,
     MatrixMultiplicationDescriptor, Vector, VectorDescriptor,
 };
-pub use crate::ndarray::{NDArray, NDArrayDescriptor, NDArrayIdentity, NDArrayMatrixMultiplication};
+pub use crate::ndarray::{
+    NDArray, NDArrayDescriptor, NDArrayIdentity, NDArrayMatrixMultiplication,
+};
 pub use crate::neural::{
     cnn_accumulator_precision_option, cnn_convolution_flags, cnn_convolution_weights_layout,
-    nn_regularization_type, rnn_bidirectional_combine_mode, rnn_sequence_direction,
-    CnnConvolution, CnnConvolutionDescriptor, CnnConvolutionWeightsAndBiasesState,
-    CnnNeuronReluNode, CnnPoolingMaxNode, CnnSoftMaxNode, CnnUpsamplingNearestNode,
-    GruDescriptor, LstmDescriptor, NNGraph, NNImageNode, NNOptimizer, NNOptimizerAdam,
-    NNOptimizerDescriptor, NNOptimizerRmsProp, NNOptimizerStochasticGradientDescent,
-    RnnDescriptor, RnnImageInferenceLayer, RnnRecurrentImageState, RnnSingleGateDescriptor,
+    nn_regularization_type, rnn_bidirectional_combine_mode, rnn_sequence_direction, CnnConvolution,
+    CnnConvolutionDescriptor, CnnConvolutionWeightsAndBiasesState, CnnNeuronReluNode,
+    CnnPoolingMaxNode, CnnSoftMaxNode, CnnUpsamplingNearestNode, GruDescriptor, LstmDescriptor,
+    NNGraph, NNImageNode, NNOptimizer, NNOptimizerAdam, NNOptimizerDescriptor, NNOptimizerRmsProp,
+    NNOptimizerStochasticGradientDescent, RnnDescriptor, RnnImageInferenceLayer,
+    RnnRecurrentImageState, RnnSingleGateDescriptor,
 };
 pub use crate::ray::{
     acceleration_structure_status, acceleration_structure_usage, cull_mode, intersection_data_type,

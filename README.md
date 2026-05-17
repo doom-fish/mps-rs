@@ -29,8 +29,9 @@ let command_buffer = queue.new_command_buffer().expect("command buffer");
 blur.encode_image(&command_buffer, &src, &dst);
 ```
 
-## v0.2.1 surface
+## v0.2.2 surface
 
+- Full Wave-C umbrella coverage: every remaining public `MetalPerformanceShaders` umbrella symbol is now exposed as an executable wrapper, raw-value mirror, or opaque retained handle.
 - Core helpers:
   - `supports_mtl_device`, `preferred_device`, `hint_temporary_memory_high_water_mark`, `set_heap_cache_duration`
   - `Predicate` and `MpsCommandBuffer`
@@ -67,11 +68,12 @@ blur.encode_image(&command_buffer, &src, &dst);
   - `RnnDescriptor`, `RnnSingleGateDescriptor`, `GruDescriptor`, `LstmDescriptor`, `RnnImageInferenceLayer`, `RnnRecurrentImageState`
 - Shared constants for `MPSKernelOptions`, `MPSImageEdgeMode`, `MPSImageFeatureChannelFormat`, `MPSDataType`, `MPSDataLayout`, plus convolution / optimizer / RNN / state enums
 
-See [`COVERAGE.md`](COVERAGE.md) for the Wave-C audit and the implemented/partial matrix.
+See [`COVERAGE.md`](COVERAGE.md) for the Wave-C audit and the implemented family matrix.
 
 ## Validation
 
 ```bash
+cargo clippy --all-targets -- -D warnings
 cargo test
 cargo run --example 01_blur_image
 cargo run --example 02_matrix_multiply

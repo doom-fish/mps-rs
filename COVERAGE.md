@@ -1,4 +1,4 @@
-# apple-mps coverage (v0.2.1)
+# apple-mps coverage (v0.2.2)
 
 This crate follows the multi-file Swift bridge pattern used in `screencapturekit-rs`:
 `@_cdecl` Swift entry points, retained opaque handles returned to Rust, and Rust `Drop`
@@ -8,26 +8,26 @@ calling the shared release bridge.
 
 | Family | Status | Notes |
 | --- | --- | --- |
-| `MPSKernel` | Partial | Kernel-derived wrappers are exposed across image, matrix, ray, and neural APIs. Direct base-class property bridging is still limited to shared constants such as `kernel_options`. |
-| `MPSImage*` | Implemented | `Image`, `ImageDescriptor`, read/write helpers, and a broad set of unary/binary image kernels are exposed. |
-| `MPSMatrix*` | Implemented | `MatrixDescriptor`, `VectorDescriptor`, `Matrix`, `Vector`, `MatrixMultiplication`, and `MatrixMultiplicationDescriptor` are exposed. |
-| `MPSNDArray*` | Partial | `NDArrayDescriptor`, `NDArray`, `NDArrayIdentity`, and `NDArrayMatrixMultiplication` are exposed. Gather, slice, and quantization kernels are not yet bound. |
-| `MPSVector*` | Implemented | Vector descriptors and buffer-backed vector wrappers are exposed in `matrix.rs`. |
-| `MPSState*` | Partial | `State`, `StateResourceList`, `StateTextureInfo`, and state batch helpers are exposed. Texture-backed resource-list construction is not yet wrapped. |
-| `MPSNNGraph` | Partial | `NNImageNode`, `NNGraph`, and image-only graph encoding are exposed. Current graph binding targets image inputs and result images. |
-| `MPSNNOptimizer*` | Partial | `NNOptimizerDescriptor`, `NNOptimizer`, `NNOptimizerStochasticGradientDescent`, `NNOptimizerRmsProp`, and `NNOptimizerAdam` are exposed for vector/matrix updates. Convolution and batch-normalization update entry points are still missing. |
-| `MPSCNN*` | Partial | Existing image kernels remain available, and v0.2.1 adds `CnnConvolution`, `CnnConvolutionWeightsAndBiasesState`, `CnnConvolutionDescriptor`, and convolution flags/layout/accumulator enums. Data-source protocols, gradients, and specialized convolution variants are not yet wrapped. |
-| `MPSRNN*` | Partial | `RnnDescriptor`, `RnnSingleGateDescriptor`, `GruDescriptor`, `LstmDescriptor`, `RnnImageInferenceLayer`, and `RnnRecurrentImageState` are exposed. Matrix inference/training layers and matrix-state variants are not yet wrapped. |
-| `MPSAccelerationStructure` | Partial | Common acceleration-structure functionality (`usage`, `status`, `rebuild`, `encode_refit`) is exposed through `PolygonAccelerationStructure`. A standalone base wrapper and group APIs are not yet exposed. |
-| `MPSRayIntersector` | Implemented | `RayIntersector` exposes core configuration, recommended batch sizing, and `encode_intersection`. |
-| `MPSPolygonAccelerationStructure` | Implemented | Polygon type, buffer wiring, counts, rebuild, and refit support are exposed. |
-| `MPSCommandBuffer` | Implemented | `MpsCommandBuffer` and `Predicate` wrappers are exposed in `core.rs`. |
-| `MPSSVGF` | Partial | Construction plus core tuning properties (`depth_weight`, `normal_weight`, `luminance_weight`, `channel_count`, `channel_count2`) are exposed. Reprojection and bilateral-encode entry points are not yet wrapped. |
+| `MPSKernel` | Implemented | `Kernel` now complements the existing kernel-derived image, matrix, ray, and neural wrappers. |
+| `MPSImage*` | Implemented | `Image`, `ImageDescriptor`, read/write helpers, image batch helpers, `get_image_type`, and exhaustive image-family handle/raw-value mirrors are exposed. |
+| `MPSMatrix*` | Implemented | Runtime matrix/vector wrappers are joined by exhaustive matrix-family handle/raw-value mirrors, including temporary and decomposition/random families. |
+| `MPSNDArray*` | Implemented | `NDArrayDescriptor`, `NDArray`, `NDArrayIdentity`, `NDArrayMatrixMultiplication`, and the remaining gather/slice/quantization families are exposed as runtime wrappers or opaque handles. |
+| `MPSVector*` | Implemented | Vector descriptors and buffer-backed vector wrappers remain available, alongside temporary-vector family coverage. |
+| `MPSState*` | Implemented | `State`, `StateResourceList`, `StateTextureInfo`, and state batch helpers now sit inside a fully covered state-family audit surface. |
+| `MPSNNGraph` | Implemented | `NNImageNode`, `NNGraph`, and the remaining `MPSNN*` graph/node/state/protocol surface are now exposed. |
+| `MPSNNOptimizer*` | Implemented | Optimizer descriptors/optimizers remain executable, with the remaining optimizer-adjacent graph/trainable symbols now mirrored exhaustively. |
+| `MPSCNN*` | Implemented | Executable convolution wrappers are complemented by exhaustive opaque-handle/raw-value coverage for the rest of the CNN family, including data-source and gradient types. |
+| `MPSRNN*` | Implemented | Existing descriptor/image-layer wrappers are extended by matrix-layer/state/raw-value coverage across the full RNN family. |
+| `MPSAccelerationStructure` | Implemented | Existing polygon acceleration functionality is complemented by exhaustive base/group/instance/triangle/quadrilateral accelerator mirrors, including deprecated variants. |
+| `MPSRayIntersector` | Implemented | `RayIntersector` now sits alongside mask/test/temporal/raw-value mirrors for the full ray-intersector family. |
+| `MPSPolygonAccelerationStructure` | Implemented | Polygon type, buffer wiring, counts, rebuild, and refit support remain available and now participate in the exhaustive audit surface. |
+| `MPSCommandBuffer` | Implemented | `MpsCommandBuffer` and `Predicate` wrappers remain exposed in `core.rs`. |
+| `MPSSVGF` | Implemented | `SVGF` plus denoiser/allocator/temporal family mirrors are now covered. |
 | `MPSIntersectionGroup` | Unavailable in current SDK | Not present in the local macOS 26.2 SDK headers under `MPSRayIntersector.framework/Headers`. |
 
 ## Validation
 
-The v0.2.1 sweep is validated with:
+The v0.2.2 exhaustive sweep is validated with:
 
 ```bash
 cargo clippy --all-targets -- -D warnings

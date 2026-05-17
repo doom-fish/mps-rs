@@ -30,6 +30,8 @@ macro_rules! opaque_handle {
     };
 }
 
+pub use crate::generated::ndarray::*;
+
 opaque_handle!(NDArrayDescriptor);
 impl NDArrayDescriptor {
     #[must_use]
@@ -245,7 +247,8 @@ opaque_handle!(NDArrayMatrixMultiplication);
 impl NDArrayMatrixMultiplication {
     #[must_use]
     pub fn new(device: &MetalDevice, source_count: usize) -> Option<Self> {
-        let ptr = unsafe { ffi::mps_ndarray_matrix_multiplication_new(device.as_ptr(), source_count) };
+        let ptr =
+            unsafe { ffi::mps_ndarray_matrix_multiplication_new(device.as_ptr(), source_count) };
         if ptr.is_null() {
             None
         } else {

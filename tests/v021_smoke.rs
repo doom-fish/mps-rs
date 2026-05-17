@@ -1,14 +1,13 @@
 use apple_metal::{resource_options, MetalBuffer, MetalDevice};
 use apple_mps::{
-    cnn_accumulator_precision_option, cnn_convolution_flags, nn_regularization_type,
-    rnn_bidirectional_combine_mode, data_type, feature_channel_format,
-    state_batch_increment_read_count, state_batch_resource_size, state_batch_synchronize,
-    state_resource_type, CnnConvolution, CnnConvolutionDescriptor,
-    CnnConvolutionWeightsAndBiasesState, GruDescriptor, Image, ImageDescriptor,
-    LstmDescriptor, Matrix, MatrixDescriptor, NDArray, NDArrayDescriptor,
-    NDArrayMatrixMultiplication, NNOptimizerAdam, NNOptimizerDescriptor,
-    NNOptimizerRmsProp, NNOptimizerStochasticGradientDescent, RnnImageInferenceLayer,
-    RnnSingleGateDescriptor, State, StateResourceList, Vector, VectorDescriptor,
+    cnn_accumulator_precision_option, cnn_convolution_flags, data_type, feature_channel_format,
+    nn_regularization_type, rnn_bidirectional_combine_mode, state_batch_increment_read_count,
+    state_batch_resource_size, state_batch_synchronize, state_resource_type, CnnConvolution,
+    CnnConvolutionDescriptor, CnnConvolutionWeightsAndBiasesState, GruDescriptor, Image,
+    ImageDescriptor, LstmDescriptor, Matrix, MatrixDescriptor, NDArray, NDArrayDescriptor,
+    NDArrayMatrixMultiplication, NNOptimizerAdam, NNOptimizerDescriptor, NNOptimizerRmsProp,
+    NNOptimizerStochasticGradientDescent, RnnImageInferenceLayer, RnnSingleGateDescriptor, State,
+    StateResourceList, Vector, VectorDescriptor,
 };
 
 fn as_bytes<T>(values: &[T]) -> &[u8] {
@@ -17,7 +16,11 @@ fn as_bytes<T>(values: &[T]) -> &[u8] {
     }
 }
 
-fn buffer_with_f32_values_padded(device: &MetalDevice, values: &[f32], byte_len: usize) -> MetalBuffer {
+fn buffer_with_f32_values_padded(
+    device: &MetalDevice,
+    values: &[f32],
+    byte_len: usize,
+) -> MetalBuffer {
     let buffer = device
         .new_buffer(
             byte_len.max(core::mem::size_of_val(values)),
@@ -39,14 +42,21 @@ fn read_f32_values(buffer: &MetalBuffer, len: usize) -> Vec<f32> {
 
 fn vector_with_values(device: &MetalDevice, values: &[f32]) -> (MetalBuffer, Vector) {
     let buffer = buffer_with_f32_values(device, values);
-    let descriptor = VectorDescriptor::contiguous(values.len(), data_type::FLOAT32).expect("vector desc");
+    let descriptor =
+        VectorDescriptor::contiguous(values.len(), data_type::FLOAT32).expect("vector desc");
     let vector = Vector::new_with_buffer(&buffer, descriptor).expect("vector");
     (buffer, vector)
 }
 
-fn matrix_with_values(device: &MetalDevice, rows: usize, columns: usize, values: &[f32]) -> (MetalBuffer, Matrix) {
+fn matrix_with_values(
+    device: &MetalDevice,
+    rows: usize,
+    columns: usize,
+    values: &[f32],
+) -> (MetalBuffer, Matrix) {
     let buffer = buffer_with_f32_values(device, values);
-    let descriptor = MatrixDescriptor::contiguous(rows, columns, data_type::FLOAT32).expect("matrix desc");
+    let descriptor =
+        MatrixDescriptor::contiguous(rows, columns, data_type::FLOAT32).expect("matrix desc");
     let matrix = Matrix::new_with_buffer(&buffer, descriptor).expect("matrix");
     (buffer, matrix)
 }
@@ -54,7 +64,10 @@ fn matrix_with_values(device: &MetalDevice, rows: usize, columns: usize, values:
 fn approx_eq(actual: &[f32], expected: &[f32]) {
     assert_eq!(actual.len(), expected.len());
     for (actual_value, expected_value) in actual.iter().zip(expected) {
-        assert!((actual_value - expected_value).abs() < 1.0e-3, "actual={actual:?} expected={expected:?}");
+        assert!(
+            (actual_value - expected_value).abs() < 1.0e-3,
+            "actual={actual:?} expected={expected:?}"
+        );
     }
 }
 
@@ -63,25 +76,21 @@ fn ndarray_matrix_multiplication_smoke() {
     let device = MetalDevice::system_default().expect("no Metal device available");
     let queue = device.new_command_queue().expect("command queue");
 
-    let descriptor = NDArrayDescriptor::with_dimension_sizes(data_type::FLOAT32, &[2, 2, 1, 1]).expect("descriptor");
+    let descriptor = NDArrayDescriptor::with_dimension_sizes(data_type::FLOAT32, &[2, 2, 1, 1])
+        .expect("descriptor");
     let template = NDArray::new(&device, &descriptor).expect("template ndarray");
     let byte_len = template.resource_size();
     let rows = descriptor.length_of_dimension(1);
     let row_stride_floats = byte_len / core::mem::size_of::<f32>() / rows;
-    let left_buffer = buffer_with_f32_values_padded(
-        &device,
-        &[1.0, 2.0, 0.0, 0.0, 3.0, 4.0, 0.0, 0.0],
-        byte_len,
-    );
-    let right_buffer = buffer_with_f32_values_padded(
-        &device,
-        &[5.0, 6.0, 0.0, 0.0, 7.0, 8.0, 0.0, 0.0],
-        byte_len,
-    );
+    let left_buffer =
+        buffer_with_f32_values_padded(&device, &[1.0, 2.0, 0.0, 0.0, 3.0, 4.0, 0.0, 0.0], byte_len);
+    let right_buffer =
+        buffer_with_f32_values_padded(&device, &[5.0, 6.0, 0.0, 0.0, 7.0, 8.0, 0.0, 0.0], byte_len);
     let destination_buffer = buffer_with_f32_values_padded(&device, &[0.0; 8], byte_len);
     let left = NDArray::new_with_buffer(&left_buffer, 0, &descriptor).expect("left ndarray");
     let right = NDArray::new_with_buffer(&right_buffer, 0, &descriptor).expect("right ndarray");
-    let destination = NDArray::new_with_buffer(&destination_buffer, 0, &descriptor).expect("destination ndarray");
+    let destination =
+        NDArray::new_with_buffer(&destination_buffer, 0, &descriptor).expect("destination ndarray");
 
     let kernel = NDArrayMatrixMultiplication::new(&device, 2).expect("ndarray matmul");
     kernel.set_alpha(1.0);
@@ -111,12 +120,18 @@ fn state_and_optimizer_smoke() {
     let queue = device.new_command_queue().expect("command queue");
 
     let command_buffer = queue.new_command_buffer().expect("command buffer");
-    let temporary_a = State::temporary_with_buffer_size(&command_buffer, 32).expect("temporary state a");
-    let temporary_b = State::temporary_with_buffer_size(&command_buffer, 64).expect("temporary state b");
+    let temporary_a =
+        State::temporary_with_buffer_size(&command_buffer, 32).expect("temporary state a");
+    let temporary_b =
+        State::temporary_with_buffer_size(&command_buffer, 64).expect("temporary state b");
     assert!(temporary_a.is_temporary());
     assert_eq!(temporary_a.buffer_size_at_index(0), 32);
-    assert_eq!(temporary_a.resource_type_at_index(0), state_resource_type::BUFFER);
-    let unique_count = state_batch_increment_read_count(&[&temporary_a, &temporary_a, &temporary_b], 2);
+    assert_eq!(
+        temporary_a.resource_type_at_index(0),
+        state_resource_type::BUFFER
+    );
+    let unique_count =
+        state_batch_increment_read_count(&[&temporary_a, &temporary_a, &temporary_b], 2);
     assert_eq!(unique_count, 2);
     assert_eq!(temporary_a.read_count(), 3);
     assert_eq!(temporary_b.read_count(), 3);
@@ -127,11 +142,15 @@ fn state_and_optimizer_smoke() {
     let resource_list = StateResourceList::new().expect("resource list");
     resource_list.append_buffer(16);
     resource_list.append_buffer(8);
-    let persistent_state = State::new_with_resource_list(&device, &resource_list).expect("persistent state");
+    let persistent_state =
+        State::new_with_resource_list(&device, &resource_list).expect("persistent state");
     assert_eq!(persistent_state.resource_count(), 2);
     assert_eq!(persistent_state.buffer_size_at_index(0), 16);
     assert_eq!(persistent_state.buffer_size_at_index(1), 8);
-    assert_eq!(persistent_state.resource_type_at_index(1), state_resource_type::BUFFER);
+    assert_eq!(
+        persistent_state.resource_type_at_index(1),
+        state_resource_type::BUFFER
+    );
     let _ = persistent_state.resource_size();
     let sync_command_buffer = queue.new_command_buffer().expect("sync command buffer");
     state_batch_synchronize(&[&persistent_state], &sync_command_buffer);
@@ -148,7 +167,10 @@ fn state_and_optimizer_smoke() {
         0.0,
     )
     .expect("optimizer descriptor");
-    assert_eq!(descriptor.regularization_type(), nn_regularization_type::NONE);
+    assert_eq!(
+        descriptor.regularization_type(),
+        nn_regularization_type::NONE
+    );
     assert!(descriptor.apply_gradient_clipping());
     descriptor.set_learning_rate(0.5);
     assert!((descriptor.learning_rate() - 0.5).abs() < f32::EPSILON);
@@ -183,10 +205,14 @@ fn state_and_optimizer_smoke() {
     let sgd_output = read_f32_values(&sgd_result_buffer, 2);
     approx_eq(&sgd_output, &[0.95, -0.9]);
 
-    let (_gradient_matrix_buffer, gradient_matrix) = matrix_with_values(&device, 1, 2, &gradient_values);
+    let (_gradient_matrix_buffer, gradient_matrix) =
+        matrix_with_values(&device, 1, 2, &gradient_values);
     let (_values_matrix_buffer, values_matrix) = matrix_with_values(&device, 1, 2, &source_values);
-    let (sgd_matrix_result_buffer, sgd_matrix_result) = matrix_with_values(&device, 1, 2, &[0.0, 0.0]);
-    let sgd_matrix_command_buffer = queue.new_command_buffer().expect("sgd matrix command buffer");
+    let (sgd_matrix_result_buffer, sgd_matrix_result) =
+        matrix_with_values(&device, 1, 2, &[0.0, 0.0]);
+    let sgd_matrix_command_buffer = queue
+        .new_command_buffer()
+        .expect("sgd matrix command buffer");
     sgd.encode_matrix(
         &sgd_matrix_command_buffer,
         &gradient_matrix,
@@ -204,7 +230,8 @@ fn state_and_optimizer_smoke() {
 
     let rms_descriptor = NNOptimizerDescriptor::new(0.25, 1.0, nn_regularization_type::NONE, 0.0)
         .expect("rms descriptor");
-    let rms = NNOptimizerRmsProp::new_with_options(&device, 0.9, 1.0e-8, &rms_descriptor).expect("rmsprop");
+    let rms = NNOptimizerRmsProp::new_with_options(&device, 0.9, 1.0e-8, &rms_descriptor)
+        .expect("rmsprop");
     assert!((rms.decay() - 0.9).abs() < f64::EPSILON);
     let (_sumsq_buffer, sumsq_vector) = vector_with_values(&device, &[0.0, 0.0]);
     let (rms_result_buffer, rms_result_vector) = vector_with_values(&device, &[0.0, 0.0]);
@@ -254,11 +281,13 @@ fn state_and_optimizer_smoke() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn convolution_and_rnn_smoke() {
     let device = MetalDevice::system_default().expect("no Metal device available");
     let queue = device.new_command_queue().expect("command queue");
 
-    let convolution_descriptor = CnnConvolutionDescriptor::new(1, 1, 1, 1).expect("conv descriptor");
+    let convolution_descriptor =
+        CnnConvolutionDescriptor::new(1, 1, 1, 1).expect("conv descriptor");
     assert_eq!(convolution_descriptor.input_feature_channels(), 1);
     assert_eq!(convolution_descriptor.output_feature_channels(), 1);
     let convolution = CnnConvolution::new(
@@ -270,7 +299,10 @@ fn convolution_and_rnn_smoke() {
     )
     .expect("convolution");
     convolution.set_accumulator_precision_option(cnn_accumulator_precision_option::FLOAT);
-    assert_eq!(convolution.accumulator_precision_option(), cnn_accumulator_precision_option::FLOAT);
+    assert_eq!(
+        convolution.accumulator_precision_option(),
+        cnn_accumulator_precision_option::FLOAT
+    );
     assert_eq!(convolution.input_feature_channels(), 1);
     assert_eq!(convolution.output_feature_channels(), 1);
 
@@ -295,15 +327,18 @@ fn convolution_and_rnn_smoke() {
     .expect("state with offsets");
     assert_eq!(offset_state.weights_offset(), 4);
     assert_eq!(offset_state.biases_offset(), 4);
-    let allocated_state = CnnConvolutionWeightsAndBiasesState::new_with_device(&device, &convolution_descriptor)
-        .expect("allocated state");
+    let allocated_state =
+        CnnConvolutionWeightsAndBiasesState::new_with_device(&device, &convolution_descriptor)
+            .expect("allocated state");
     assert_eq!(allocated_state.weights_offset(), 0);
     assert_eq!(allocated_state.biases_offset(), 0);
 
     let image_descriptor = ImageDescriptor::new(2, 2, 1, feature_channel_format::FLOAT32);
     let source = Image::new(&device, image_descriptor).expect("source image");
     let destination = Image::new(&device, image_descriptor).expect("destination image");
-    source.write_f32(&[1.0, 2.0, 3.0, 4.0]).expect("write source");
+    source
+        .write_f32(&[1.0, 2.0, 3.0, 4.0])
+        .expect("write source");
 
     let convolution_command_buffer = queue.new_command_buffer().expect("conv command buffer");
     convolution.encode_image(&convolution_command_buffer, &source, &destination);
@@ -333,12 +368,16 @@ fn convolution_and_rnn_smoke() {
     let base_descriptor = single_gate.as_descriptor().expect("base descriptor");
     assert_eq!(base_descriptor.input_feature_channels(), 1);
     let layer = RnnImageInferenceLayer::new(&device, &base_descriptor).expect("rnn layer");
-    let stacked_layer = RnnImageInferenceLayer::new_stack(&device, &[&base_descriptor]).expect("stacked rnn layer");
+    let stacked_layer =
+        RnnImageInferenceLayer::new_stack(&device, &[&base_descriptor]).expect("stacked rnn layer");
     assert_eq!(stacked_layer.number_of_layers(), 1);
     layer.set_recurrent_output_is_temporary(false);
     layer.set_store_all_intermediate_states(true);
     layer.set_bidirectional_combine_mode(rnn_bidirectional_combine_mode::ADD);
-    assert_eq!(layer.bidirectional_combine_mode(), rnn_bidirectional_combine_mode::ADD);
+    assert_eq!(
+        layer.bidirectional_combine_mode(),
+        rnn_bidirectional_combine_mode::ADD
+    );
 
     let seq_descriptor = ImageDescriptor::new(1, 1, 1, feature_channel_format::FLOAT32);
     let src0 = Image::new(&device, seq_descriptor).expect("src0");

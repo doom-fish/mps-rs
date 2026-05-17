@@ -21,6 +21,18 @@ extern "C" {
     pub fn mps_image_number_of_images(handle: *mut c_void) -> usize;
     pub fn mps_image_pixel_size(handle: *mut c_void) -> usize;
     pub fn mps_image_pixel_format(handle: *mut c_void) -> usize;
+    pub fn mps_get_image_type(handle: *mut c_void) -> u32;
+    pub fn mps_image_batch_increment_read_count(
+        handles: *const *mut c_void,
+        count: usize,
+        amount: isize,
+    ) -> usize;
+    pub fn mps_image_batch_synchronize(
+        handles: *const *mut c_void,
+        count: usize,
+        command_buffer_handle: *mut c_void,
+    );
+    pub fn mps_image_batch_resource_size(handles: *const *mut c_void, count: usize) -> usize;
     pub fn mps_image_read_bytes(
         handle: *mut c_void,
         data: *mut c_void,

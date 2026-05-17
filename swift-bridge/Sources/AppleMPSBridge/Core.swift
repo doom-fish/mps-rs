@@ -96,6 +96,24 @@ func mps_borrow_array<T>(
     return objects
 }
 
+@_cdecl("mps_rect_no_clip")
+public func mps_rect_no_clip(
+    _ x: UnsafeMutablePointer<Int>?,
+    _ y: UnsafeMutablePointer<Int>?,
+    _ z: UnsafeMutablePointer<Int>?,
+    _ width: UnsafeMutablePointer<Int>?,
+    _ height: UnsafeMutablePointer<Int>?,
+    _ depth: UnsafeMutablePointer<Int>?
+) {
+    let region = MPSRectNoClip
+    x?.pointee = region.origin.x
+    y?.pointee = region.origin.y
+    z?.pointee = region.origin.z
+    width?.pointee = region.size.width
+    height?.pointee = region.size.height
+    depth?.pointee = region.size.depth
+}
+
 @_cdecl("mps_supports_mtl_device")
 public func mps_supports_mtl_device(_ deviceHandle: UnsafeMutableRawPointer?) -> Bool {
     guard let device: MTLDevice = mps_borrow(deviceHandle) else { return false }
