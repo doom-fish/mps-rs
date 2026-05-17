@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.3 - 2025-01-16
+
+- Added SAFETY comments to all unsafe blocks across the crate for improved unsafe audit visibility
+
 ## 0.2.2 - 2026-05-16
 
 - Closed the MacOSX26.2 umbrella audit to 100% by exposing every remaining public symbol as an executable wrapper, raw-value mirror, or opaque retained handle.

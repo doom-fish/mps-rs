@@ -49,12 +49,15 @@ macro_rules! opaque_handle {
             ptr: *mut c_void,
         }
 
+        // SAFETY: MPS handles are opaque pointers to thread-safe Swift/ObjC objects.
         unsafe impl Send for $name {}
+        // SAFETY: MPS handles are opaque pointers to thread-safe Swift/ObjC objects.
         unsafe impl Sync for $name {}
 
         impl Drop for $name {
             fn drop(&mut self) {
                 if !self.ptr.is_null() {
+                    // SAFETY: `ptr` is a +1 retained MPS object owned by this wrapper.
                     unsafe { ffi::mps_object_release(self.ptr) };
                     self.ptr = ptr::null_mut();
                 }

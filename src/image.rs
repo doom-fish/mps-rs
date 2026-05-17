@@ -137,7 +137,9 @@ pub struct Image {
     ptr: *mut c_void,
 }
 
+// SAFETY: MPSImage pointers are thread-safe Objective-C objects.
 unsafe impl Send for Image {}
+// SAFETY: MPSImage pointers are thread-safe Objective-C objects.
 unsafe impl Sync for Image {}
 
 impl Drop for Image {
@@ -194,6 +196,8 @@ impl Image {
 
     #[must_use]
     pub(crate) const unsafe fn from_raw(ptr: *mut c_void) -> Self {
+        // SAFETY: Caller must ensure `ptr` is a valid +1 retained MPSImage pointer.
+        // SAFETY: Caller must ensure `ptr` is a valid +1 retained MPSImage pointer.
         Self { ptr }
     }
 

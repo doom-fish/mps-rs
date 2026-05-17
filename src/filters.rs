@@ -10,7 +10,9 @@ macro_rules! opaque_handle {
             ptr: *mut c_void,
         }
 
+        // SAFETY: MPS filter handles are opaque pointers to thread-safe Swift/ObjC objects.
         unsafe impl Send for $name {}
+        // SAFETY: MPS filter handles are opaque pointers to thread-safe Swift/ObjC objects.
         unsafe impl Sync for $name {}
 
         impl Drop for $name {

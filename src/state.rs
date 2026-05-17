@@ -28,12 +28,15 @@ macro_rules! opaque_handle {
             ptr: *mut c_void,
         }
 
+        // SAFETY: MPS handles are opaque pointers to thread-safe Swift/ObjC objects.
         unsafe impl Send for $name {}
+        // SAFETY: MPS handles are opaque pointers to thread-safe Swift/ObjC objects.
         unsafe impl Sync for $name {}
 
         impl Drop for $name {
             fn drop(&mut self) {
                 if !self.ptr.is_null() {
+                    // SAFETY: `ptr` is a +1 retained MPS object owned by this wrapper.
                     unsafe { ffi::mps_object_release(self.ptr) };
                     self.ptr = ptr::null_mut();
                 }
@@ -53,6 +56,7 @@ opaque_handle!(StateResourceList);
 impl StateResourceList {
     #[must_use]
     pub fn new() -> Option<Self> {
+        // SAFETY: This function returns a new StateResourceList or null.
         let ptr = unsafe { ffi::mps_state_resource_list_new() };
         if ptr.is_null() {
             None
@@ -62,6 +66,7 @@ impl StateResourceList {
     }
 
     pub fn append_buffer(&self, size: usize) {
+        // SAFETY: self.ptr is a valid StateResourceList.
         unsafe { ffi::mps_state_resource_list_append_buffer(self.ptr, size) };
     }
 }
@@ -70,6 +75,7 @@ opaque_handle!(State);
 impl State {
     #[must_use]
     pub fn temporary(command_buffer: &MetalCommandBuffer) -> Option<Self> {
+        // SAFETY: command_buffer pointer is valid for the call.
         let ptr = unsafe { ffi::mps_state_temporary_new(command_buffer.as_ptr()) };
         if ptr.is_null() {
             None
@@ -95,6 +101,7 @@ impl State {
 
     #[must_use]
     pub fn new_with_buffer_size(device: &MetalDevice, buffer_size: usize) -> Option<Self> {
+        // SAFETY: device pointer is valid for the call.
         let ptr = unsafe { ffi::mps_state_new_with_buffer_size(device.as_ptr(), buffer_size) };
         if ptr.is_null() {
             None
@@ -138,15 +145,18 @@ impl State {
 
     #[must_use]
     pub fn resource_count(&self) -> usize {
+        // SAFETY: self.ptr is a valid State object.
         unsafe { ffi::mps_state_resource_count(self.ptr) }
     }
 
     #[must_use]
     pub fn read_count(&self) -> usize {
+        // SAFETY: self.ptr is a valid State object.
         unsafe { ffi::mps_state_read_count(self.ptr) }
     }
 
     pub fn set_read_count(&self, count: usize) {
+        // SAFETY: self.ptr is a valid State object.
         unsafe { ffi::mps_state_set_read_count(self.ptr, count) };
     }
 

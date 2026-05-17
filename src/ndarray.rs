@@ -9,12 +9,15 @@ macro_rules! opaque_handle {
             ptr: *mut c_void,
         }
 
+        // SAFETY: MPS handles are opaque pointers to thread-safe Swift/ObjC objects.
         unsafe impl Send for $name {}
+        // SAFETY: MPS handles are opaque pointers to thread-safe Swift/ObjC objects.
         unsafe impl Sync for $name {}
 
         impl Drop for $name {
             fn drop(&mut self) {
                 if !self.ptr.is_null() {
+                    // SAFETY: `ptr` is a +1 retained MPS object owned by this wrapper.
                     unsafe { ffi::mps_object_release(self.ptr) };
                     self.ptr = ptr::null_mut();
                 }
@@ -36,6 +39,7 @@ opaque_handle!(NDArrayDescriptor);
 impl NDArrayDescriptor {
     #[must_use]
     pub fn with_dimension_sizes(data_type: u32, dimension_sizes: &[usize]) -> Option<Self> {
+        // SAFETY: dimension_sizes.as_ptr() is valid for dimension_sizes.len() elements.
         let ptr = unsafe {
             ffi::mps_ndarray_descriptor_new_with_dimension_sizes(
                 data_type,
@@ -52,19 +56,23 @@ impl NDArrayDescriptor {
 
     #[must_use]
     pub fn data_type(&self) -> u32 {
+        // SAFETY: self.ptr is a valid NDArrayDescriptor.
         unsafe { ffi::mps_ndarray_descriptor_data_type(self.ptr) }
     }
 
     pub fn set_data_type(&self, data_type: u32) {
+        // SAFETY: self.ptr is a valid NDArrayDescriptor.
         unsafe { ffi::mps_ndarray_descriptor_set_data_type(self.ptr, data_type) };
     }
 
     #[must_use]
     pub fn number_of_dimensions(&self) -> usize {
+        // SAFETY: self.ptr is a valid NDArrayDescriptor.
         unsafe { ffi::mps_ndarray_descriptor_number_of_dimensions(self.ptr) }
     }
 
     pub fn set_number_of_dimensions(&self, number_of_dimensions: usize) {
+        // SAFETY: self.ptr is a valid NDArrayDescriptor.
         unsafe {
             ffi::mps_ndarray_descriptor_set_number_of_dimensions(self.ptr, number_of_dimensions);
         };
@@ -72,10 +80,12 @@ impl NDArrayDescriptor {
 
     #[must_use]
     pub fn length_of_dimension(&self, dimension_index: usize) -> usize {
+        // SAFETY: self.ptr is a valid NDArrayDescriptor and dimension_index is in bounds.
         unsafe { ffi::mps_ndarray_descriptor_length_of_dimension(self.ptr, dimension_index) }
     }
 
     pub fn reshape_with_dimension_sizes(&self, dimension_sizes: &[usize]) {
+        // SAFETY: dimension_sizes.as_ptr() is valid for dimension_sizes.len() elements.
         unsafe {
             ffi::mps_ndarray_descriptor_reshape_with_dimension_sizes(
                 self.ptr,
@@ -86,6 +96,7 @@ impl NDArrayDescriptor {
     }
 
     pub fn transpose_dimension(&self, dimension_index: usize, other_dimension_index: usize) {
+        // SAFETY: Both dimension indices are validated by MPS.
         unsafe {
             ffi::mps_ndarray_descriptor_transpose_dimension(
                 self.ptr,
@@ -100,6 +111,7 @@ opaque_handle!(NDArray);
 impl NDArray {
     #[must_use]
     pub fn new(device: &MetalDevice, descriptor: &NDArrayDescriptor) -> Option<Self> {
+        // SAFETY: Both pointers come from safe wrappers and are valid for the call.
         let ptr =
             unsafe { ffi::mps_ndarray_new_with_descriptor(device.as_ptr(), descriptor.as_ptr()) };
         if ptr.is_null() {
@@ -111,6 +123,7 @@ impl NDArray {
 
     #[must_use]
     pub fn scalar(device: &MetalDevice, value: f64) -> Option<Self> {
+        // SAFETY: device pointer is valid and we return null or a +1 retained NDArray.
         let ptr = unsafe { ffi::mps_ndarray_new_scalar(device.as_ptr(), value) };
         if ptr.is_null() {
             None
