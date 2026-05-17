@@ -9,8 +9,10 @@ extern "C" {
         command_buffer_handle: *mut c_void,
         buffer_size: usize,
     ) -> *mut c_void;
-    pub fn mps_state_new_with_buffer_size(device_handle: *mut c_void, buffer_size: usize)
-        -> *mut c_void;
+    pub fn mps_state_new_with_buffer_size(
+        device_handle: *mut c_void,
+        buffer_size: usize,
+    ) -> *mut c_void;
     pub fn mps_state_new_with_resource_list(
         device_handle: *mut c_void,
         resource_list_handle: *mut c_void,

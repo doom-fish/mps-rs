@@ -7,7 +7,11 @@ fn as_bytes<T>(values: &[T]) -> &[u8] {
     }
 }
 
-fn buffer_with_f32_values_padded(device: &MetalDevice, values: &[f32], byte_len: usize) -> MetalBuffer {
+fn buffer_with_f32_values_padded(
+    device: &MetalDevice,
+    values: &[f32],
+    byte_len: usize,
+) -> MetalBuffer {
     let buffer = device
         .new_buffer(
             byte_len.max(core::mem::size_of_val(values)),
@@ -27,26 +31,22 @@ fn main() {
     let device = MetalDevice::system_default().expect("no Metal device available");
     let queue = device.new_command_queue().expect("command queue");
 
-    let descriptor = NDArrayDescriptor::with_dimension_sizes(data_type::FLOAT32, &[2, 2, 1, 1]).expect("descriptor");
+    let descriptor = NDArrayDescriptor::with_dimension_sizes(data_type::FLOAT32, &[2, 2, 1, 1])
+        .expect("descriptor");
     let template = NDArray::new(&device, &descriptor).expect("template ndarray");
     let byte_len = template.resource_size();
     let rows = descriptor.length_of_dimension(1);
     let row_stride_floats = byte_len / core::mem::size_of::<f32>() / rows;
-    let left_buffer = buffer_with_f32_values_padded(
-        &device,
-        &[1.0, 2.0, 0.0, 0.0, 3.0, 4.0, 0.0, 0.0],
-        byte_len,
-    );
-    let right_buffer = buffer_with_f32_values_padded(
-        &device,
-        &[5.0, 6.0, 0.0, 0.0, 7.0, 8.0, 0.0, 0.0],
-        byte_len,
-    );
+    let left_buffer =
+        buffer_with_f32_values_padded(&device, &[1.0, 2.0, 0.0, 0.0, 3.0, 4.0, 0.0, 0.0], byte_len);
+    let right_buffer =
+        buffer_with_f32_values_padded(&device, &[5.0, 6.0, 0.0, 0.0, 7.0, 8.0, 0.0, 0.0], byte_len);
     let destination_buffer = buffer_with_f32_values_padded(&device, &[0.0; 8], byte_len);
 
     let left = NDArray::new_with_buffer(&left_buffer, 0, &descriptor).expect("left ndarray");
     let right = NDArray::new_with_buffer(&right_buffer, 0, &descriptor).expect("right ndarray");
-    let destination = NDArray::new_with_buffer(&destination_buffer, 0, &descriptor).expect("destination ndarray");
+    let destination =
+        NDArray::new_with_buffer(&destination_buffer, 0, &descriptor).expect("destination ndarray");
 
     let kernel = NDArrayMatrixMultiplication::new(&device, 2).expect("ndarray matmul");
     kernel.set_alpha(1.0);

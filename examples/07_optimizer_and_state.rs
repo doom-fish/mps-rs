@@ -28,7 +28,8 @@ fn read_f32_values(buffer: &MetalBuffer, len: usize) -> Vec<f32> {
 
 fn vector_with_values(device: &MetalDevice, values: &[f32]) -> (MetalBuffer, Vector) {
     let buffer = buffer_with_f32_values(device, values);
-    let descriptor = VectorDescriptor::contiguous(values.len(), data_type::FLOAT32).expect("vector desc");
+    let descriptor =
+        VectorDescriptor::contiguous(values.len(), data_type::FLOAT32).expect("vector desc");
     let vector = Vector::new_with_buffer(&buffer, descriptor).expect("vector");
     (buffer, vector)
 }
@@ -38,17 +39,24 @@ fn main() {
     let queue = device.new_command_queue().expect("command queue");
 
     let command_buffer = queue.new_command_buffer().expect("command buffer");
-    let temporary_a = State::temporary_with_buffer_size(&command_buffer, 32).expect("temporary state a");
-    let temporary_b = State::temporary_with_buffer_size(&command_buffer, 64).expect("temporary state b");
-    let unique_count = state_batch_increment_read_count(&[&temporary_a, &temporary_a, &temporary_b], 1);
+    let temporary_a =
+        State::temporary_with_buffer_size(&command_buffer, 32).expect("temporary state a");
+    let temporary_b =
+        State::temporary_with_buffer_size(&command_buffer, 64).expect("temporary state b");
+    let unique_count =
+        state_batch_increment_read_count(&[&temporary_a, &temporary_a, &temporary_b], 1);
     assert_eq!(unique_count, 2);
-    assert_eq!(temporary_a.resource_type_at_index(0), state_resource_type::BUFFER);
+    assert_eq!(
+        temporary_a.resource_type_at_index(0),
+        state_resource_type::BUFFER
+    );
     command_buffer.commit();
     command_buffer.wait_until_completed();
 
     let resource_list = StateResourceList::new().expect("resource list");
     resource_list.append_buffer(16);
-    let persistent_state = State::new_with_resource_list(&device, &resource_list).expect("persistent state");
+    let persistent_state =
+        State::new_with_resource_list(&device, &resource_list).expect("persistent state");
     assert_eq!(persistent_state.resource_count(), 1);
     assert_eq!(persistent_state.buffer_size_at_index(0), 16);
 

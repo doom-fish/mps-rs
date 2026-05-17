@@ -104,7 +104,10 @@ impl State {
     }
 
     #[must_use]
-    pub fn new_with_resource_list(device: &MetalDevice, resource_list: &StateResourceList) -> Option<Self> {
+    pub fn new_with_resource_list(
+        device: &MetalDevice,
+        resource_list: &StateResourceList,
+    ) -> Option<Self> {
         let ptr = unsafe {
             ffi::mps_state_new_with_resource_list(device.as_ptr(), resource_list.as_ptr())
         };

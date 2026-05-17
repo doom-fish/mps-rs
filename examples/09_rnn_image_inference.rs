@@ -1,5 +1,7 @@
 use apple_metal::MetalDevice;
-use apple_mps::{feature_channel_format, Image, ImageDescriptor, RnnImageInferenceLayer, RnnSingleGateDescriptor};
+use apple_mps::{
+    feature_channel_format, Image, ImageDescriptor, RnnImageInferenceLayer, RnnSingleGateDescriptor,
+};
 
 fn main() {
     let device = MetalDevice::system_default().expect("no Metal device available");

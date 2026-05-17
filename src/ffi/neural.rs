@@ -130,8 +130,11 @@ extern "C" {
         device_handle: *mut c_void,
         descriptor_handle: *mut c_void,
     ) -> *mut c_void;
-    pub fn mps_cnn_convolution_weights_and_biases_state_weights_offset(handle: *mut c_void) -> usize;
-    pub fn mps_cnn_convolution_weights_and_biases_state_biases_offset(handle: *mut c_void) -> usize;
+    pub fn mps_cnn_convolution_weights_and_biases_state_weights_offset(
+        handle: *mut c_void,
+    ) -> usize;
+    pub fn mps_cnn_convolution_weights_and_biases_state_biases_offset(handle: *mut c_void)
+        -> usize;
 
     pub fn mps_nn_optimizer_descriptor_new(
         learning_rate: f32,
@@ -202,7 +205,10 @@ extern "C" {
         result_values_matrix_handle: *mut c_void,
     );
 
-    pub fn mps_nn_optimizer_rmsprop_new(device_handle: *mut c_void, learning_rate: f32) -> *mut c_void;
+    pub fn mps_nn_optimizer_rmsprop_new(
+        device_handle: *mut c_void,
+        learning_rate: f32,
+    ) -> *mut c_void;
     pub fn mps_nn_optimizer_rmsprop_new_with_options(
         device_handle: *mut c_void,
         decay: f64,
@@ -228,7 +234,8 @@ extern "C" {
         result_values_matrix_handle: *mut c_void,
     );
 
-    pub fn mps_nn_optimizer_adam_new(device_handle: *mut c_void, learning_rate: f32) -> *mut c_void;
+    pub fn mps_nn_optimizer_adam_new(device_handle: *mut c_void, learning_rate: f32)
+        -> *mut c_void;
     pub fn mps_nn_optimizer_adam_new_with_options(
         device_handle: *mut c_void,
         beta1: f64,
@@ -340,12 +347,14 @@ extern "C" {
     pub fn mps_rnn_image_inference_layer_input_feature_channels(handle: *mut c_void) -> usize;
     pub fn mps_rnn_image_inference_layer_output_feature_channels(handle: *mut c_void) -> usize;
     pub fn mps_rnn_image_inference_layer_number_of_layers(handle: *mut c_void) -> usize;
-    pub fn mps_rnn_image_inference_layer_recurrent_output_is_temporary(handle: *mut c_void) -> bool;
+    pub fn mps_rnn_image_inference_layer_recurrent_output_is_temporary(handle: *mut c_void)
+        -> bool;
     pub fn mps_rnn_image_inference_layer_set_recurrent_output_is_temporary(
         handle: *mut c_void,
         value: bool,
     );
-    pub fn mps_rnn_image_inference_layer_store_all_intermediate_states(handle: *mut c_void) -> bool;
+    pub fn mps_rnn_image_inference_layer_store_all_intermediate_states(handle: *mut c_void)
+        -> bool;
     pub fn mps_rnn_image_inference_layer_set_store_all_intermediate_states(
         handle: *mut c_void,
         value: bool,

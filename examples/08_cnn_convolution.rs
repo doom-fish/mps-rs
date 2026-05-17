@@ -22,7 +22,9 @@ fn main() {
     let image_descriptor = ImageDescriptor::new(2, 2, 1, feature_channel_format::FLOAT32);
     let source = Image::new(&device, image_descriptor).expect("source image");
     let destination = Image::new(&device, image_descriptor).expect("destination image");
-    source.write_f32(&[1.0, 2.0, 3.0, 4.0]).expect("write source");
+    source
+        .write_f32(&[1.0, 2.0, 3.0, 4.0])
+        .expect("write source");
 
     let command_buffer = queue.new_command_buffer().expect("command buffer");
     convolution.encode_image(&command_buffer, &source, &destination);
