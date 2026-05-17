@@ -37,7 +37,7 @@ name = "apple_mps"
 crate-type = ["lib"]
 
 [dependencies]
-apple-metal = "0.5.1"
+apple-metal = { version = ">=0.5, <0.8" }
 
 [package.metadata.docs.rs]
 default-target = "aarch64-apple-darwin"
