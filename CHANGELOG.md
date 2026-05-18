@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.2.5] - 2026-05-18
+
+- Added one-line rustdoc across the safe wrapper surface, with `///` notes that point back to the corresponding Metal Performance Shaders framework counterparts.
+- Hid `ffi` and generated re-exports from public rustdoc so `cargo +nightly rustdoc --lib -- -Z unstable-options --show-coverage` now reports 100.0% documented items.
+
 ## [0.2.4] - 2026-05-18
 
 - Widen apple-metal version bound so the 0.x bump dep resolves. No source changes.

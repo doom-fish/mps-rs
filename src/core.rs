@@ -5,14 +5,19 @@ use apple_metal::{
 use core::ffi::c_void;
 use core::ptr;
 
+/// Wraps `MPSDeviceOptions` raw values.
 pub mod device_options {
+    /// Wraps a `MPSDeviceOptions` raw value.
     pub const DEFAULT: usize = 0;
+    /// Wraps a `MPSDeviceOptions` raw value.
     pub const LOW_POWER: usize = 1;
+    /// Wraps a `MPSDeviceOptions` raw value.
     pub const SKIP_REMOVABLE: usize = 2;
 }
 
 macro_rules! opaque_handle {
-    ($name:ident) => {
+    ($name:ident, $doc:expr) => {
+        #[doc = $doc]
         pub struct $name {
             ptr: *mut c_void,
         }
@@ -33,6 +38,7 @@ macro_rules! opaque_handle {
         }
 
         impl $name {
+            /// Returns the retained Objective-C pointer backing this wrapper.
             #[must_use]
             pub const fn as_ptr(&self) -> *mut c_void {
                 self.ptr
@@ -41,13 +47,15 @@ macro_rules! opaque_handle {
     };
 }
 
+/// Calls `MPSSupportsMTLDevice` for the provided `MTLDevice`.
 pub fn supports_mtl_device(device: &MetalDevice) -> bool {
     // SAFETY: The device pointer is valid for the call and we just read the return value.
     unsafe { ffi::mps_supports_mtl_device(device.as_ptr()) }
 }
 
-opaque_handle!(PreferredDevice);
+opaque_handle!(PreferredDevice, "Owns the retained `MTLDevice` returned by `MPSGetPreferredDevice`.");
 impl PreferredDevice {
+    /// Wraps the corresponding `MPSGetPreferredDevice` conversion helper.
     #[must_use]
     pub fn as_borrowed_device(&self) -> ManuallyDropDevice {
         // SAFETY: The device pointer is a valid MTLDevice reference held by this wrapper.
@@ -55,6 +63,7 @@ impl PreferredDevice {
     }
 }
 
+/// Calls `MPSGetPreferredDevice` and wraps the retained result.
 #[must_use]
 pub fn preferred_device(options: usize) -> Option<PreferredDevice> {
     // SAFETY: This function returns a +1 retained MTLDevice or null.
@@ -66,20 +75,24 @@ pub fn preferred_device(options: usize) -> Option<PreferredDevice> {
     }
 }
 
+/// Calls `MPSHintTemporaryMemoryHighWaterMark` on the wrapped command buffer.
 pub fn hint_temporary_memory_high_water_mark(command_buffer: &MetalCommandBuffer, bytes: usize) {
     // SAFETY: The command buffer pointer is valid for the call.
     unsafe { ffi::mps_hint_temporary_memory_high_water_mark(command_buffer.as_ptr(), bytes) };
 }
 
+#[doc(hidden)]
 pub use crate::generated::core::*;
 
+/// Calls `MPSSetHeapCacheDuration` on the wrapped command buffer.
 pub fn set_heap_cache_duration(command_buffer: &MetalCommandBuffer, seconds: f64) {
     // SAFETY: The command buffer pointer is valid for the call.
     unsafe { ffi::mps_set_heap_cache_duration(command_buffer.as_ptr(), seconds) };
 }
 
-opaque_handle!(Predicate);
+opaque_handle!(Predicate, "Wraps `MPSPredicate`.");
 impl Predicate {
+    /// Wraps a constructor on `MPSPredicate`.
     #[must_use]
     pub fn new_with_buffer(buffer: &MetalBuffer, offset: usize) -> Option<Self> {
         // SAFETY: This function returns a +1 retained predicate or null.
@@ -91,6 +104,7 @@ impl Predicate {
         }
     }
 
+    /// Wraps a constructor on `MPSPredicate`.
     #[must_use]
     pub fn new_with_device(device: &MetalDevice) -> Option<Self> {
         // SAFETY: This function returns a +1 retained predicate or null.
@@ -102,6 +116,7 @@ impl Predicate {
         }
     }
 
+    /// Wraps the corresponding `MPSPredicate` method.
     #[must_use]
     pub fn predicate_offset(&self) -> usize {
         // SAFETY: The predicate pointer is valid for the call.
@@ -109,8 +124,9 @@ impl Predicate {
     }
 }
 
-opaque_handle!(CommandBuffer);
+opaque_handle!(CommandBuffer, "Wraps `MPSCommandBuffer`.");
 impl CommandBuffer {
+    /// Wraps a constructor on `MPSCommandBuffer`.
     #[must_use]
     pub fn new_with_command_buffer(command_buffer: &MetalCommandBuffer) -> Option<Self> {
         // SAFETY: This function returns a +1 retained command buffer or null.
@@ -123,6 +139,7 @@ impl CommandBuffer {
         }
     }
 
+    /// Wraps a constructor on `MPSCommandBuffer`.
     #[must_use]
     pub fn from_command_queue(command_queue: &CommandQueue) -> Option<Self> {
         // SAFETY: This function returns a +1 retained command buffer or null.
@@ -134,21 +151,25 @@ impl CommandBuffer {
         }
     }
 
+    /// Wraps the corresponding `MPSCommandBuffer` setter.
     pub fn set_predicate(&self, predicate: &Predicate) {
         // SAFETY: Both pointers are valid for the call.
         unsafe { ffi::mps_command_buffer_set_predicate(self.ptr, predicate.as_ptr()) };
     }
 
+    /// Wraps the corresponding `MPSCommandBuffer` method.
     pub fn clear_predicate(&self) {
         // SAFETY: The command buffer pointer is valid for the call.
         unsafe { ffi::mps_command_buffer_clear_predicate(self.ptr) };
     }
 
+    /// Wraps the corresponding `MPSCommandBuffer` method.
     pub fn prefetch_heap_for_workload_size(&self, size: usize) {
         // SAFETY: The command buffer pointer is valid for the call.
         unsafe { ffi::mps_command_buffer_prefetch_heap(self.ptr, size) };
     }
 
+    /// Wraps the corresponding `MPSCommandBuffer` method.
     pub fn commit_and_continue(&self) {
         // SAFETY: The command buffer pointer is valid for the call.
         unsafe { ffi::mps_command_buffer_commit_and_continue(self.ptr) };

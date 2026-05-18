@@ -4,7 +4,12 @@ use core::fmt;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Error {
     /// A caller-provided buffer was too small for the requested image transfer.
-    InvalidLength { expected: usize, actual: usize },
+    InvalidLength {
+        /// Expected byte count for the requested image transfer.
+        expected: usize,
+        /// Actual byte count supplied by the caller.
+        actual: usize,
+    },
 }
 
 /// Convenient result alias used throughout the crate.

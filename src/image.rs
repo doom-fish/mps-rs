@@ -6,45 +6,67 @@ use core::ptr;
 
 /// `MPSImageFeatureChannelFormat` constants.
 pub mod feature_channel_format {
+    /// Wraps a `MPSImageFeatureChannelFormat` raw value.
     pub const NONE: usize = 0;
+    /// Wraps a `MPSImageFeatureChannelFormat` raw value.
     pub const UNORM8: usize = 1;
+    /// Wraps a `MPSImageFeatureChannelFormat` raw value.
     pub const UNORM16: usize = 2;
+    /// Wraps a `MPSImageFeatureChannelFormat` raw value.
     pub const FLOAT16: usize = 3;
+    /// Wraps a `MPSImageFeatureChannelFormat` raw value.
     pub const FLOAT32: usize = 4;
 }
 
 /// `MPSDataLayout` constants.
 #[allow(non_upper_case_globals)]
 pub mod image_layout {
+    /// Wraps a `MPSDataLayout` raw value.
     pub const HEIGHTxWIDTHxFEATURE_CHANNELS: usize = 0;
+    /// Wraps a `MPSDataLayout` raw value.
     pub const FEATURE_CHANNELSxHEIGHTxWIDTH: usize = 1;
 }
 
 /// `MPSImageEdgeMode` constants.
 pub mod image_edge_mode {
+    /// Wraps a `MPSImageEdgeMode` raw value.
     pub const ZERO: usize = 0;
+    /// Wraps a `MPSImageEdgeMode` raw value.
     pub const CLAMP: usize = 1;
 }
 
 /// `MPSKernelOptions` constants.
 pub mod kernel_options {
+    /// Wraps a `MPSKernelOptions` raw value.
     pub const NONE: u32 = 0;
+    /// Wraps a `MPSKernelOptions` raw value.
     pub const SKIP_API_VALIDATION: u32 = 1 << 0;
+    /// Wraps a `MPSKernelOptions` raw value.
     pub const ALLOW_REDUCED_PRECISION: u32 = 1 << 1;
+    /// Wraps a `MPSKernelOptions` raw value.
     pub const DISABLE_INTERNAL_TILING: u32 = 1 << 2;
+    /// Wraps a `MPSKernelOptions` raw value.
     pub const INSERT_DEBUG_GROUPS: u32 = 1 << 3;
+    /// Wraps a `MPSKernelOptions` raw value.
     pub const VERBOSE: u32 = 1 << 4;
 }
 
 /// Plain-Rust configuration for building a `MPSImageDescriptor` on the Swift side.
 #[derive(Debug, Clone, Copy)]
 pub struct ImageDescriptor {
+    /// Corresponds to the `channel_format` field on `MPSImageDescriptor`.
     pub channel_format: usize,
+    /// Corresponds to the `width` field on `MPSImageDescriptor`.
     pub width: usize,
+    /// Corresponds to the `height` field on `MPSImageDescriptor`.
     pub height: usize,
+    /// Corresponds to the `feature_channels` field on `MPSImageDescriptor`.
     pub feature_channels: usize,
+    /// Corresponds to the `number_of_images` field on `MPSImageDescriptor`.
     pub number_of_images: usize,
+    /// Corresponds to the `usage` field on `MPSImageDescriptor`.
     pub usage: usize,
+    /// Corresponds to the `storage_mode` field on `MPSImageDescriptor`.
     pub storage_mode: usize,
 }
 
@@ -72,11 +94,17 @@ impl ImageDescriptor {
 /// Rectangular region used for image transfer or clip-rect configuration.
 #[derive(Debug, Clone, Copy)]
 pub struct ImageRegion {
+    /// Corresponds to the `x` field on `MPSRegion`.
     pub x: usize,
+    /// Corresponds to the `y` field on `MPSRegion`.
     pub y: usize,
+    /// Corresponds to the `z` field on `MPSRegion`.
     pub z: usize,
+    /// Corresponds to the `width` field on `MPSRegion`.
     pub width: usize,
+    /// Corresponds to the `height` field on `MPSRegion`.
     pub height: usize,
+    /// Corresponds to the `depth` field on `MPSRegion`.
     pub depth: usize,
 }
 
@@ -111,7 +139,9 @@ impl ImageRegion {
 /// `MPSImageReadWriteParams` values.
 #[derive(Debug, Clone, Copy)]
 pub struct ImageReadWriteParams {
+    /// Corresponds to the `feature_channel_offset` field on `MPSImageReadWriteParams`.
     pub feature_channel_offset: usize,
+    /// Corresponds to the `feature_channel_count` field on `MPSImageReadWriteParams`.
     pub feature_channel_count: usize,
 }
 
@@ -376,6 +406,7 @@ impl Image {
     }
 }
 
+#[doc(hidden)]
 pub use crate::generated::image::*;
 
 fn required_bytes(

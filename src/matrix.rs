@@ -5,15 +5,25 @@ use core::ptr;
 
 /// Selected `MPSDataType` constants used for matrices and vectors.
 pub mod data_type {
+    /// Wraps a `MPSDataType` raw value.
     pub const INVALID: u32 = 0;
+    /// Wraps a `MPSDataType` raw value.
     pub const FLOAT32: u32 = 0x1000_0020;
+    /// Wraps a `MPSDataType` raw value.
     pub const FLOAT16: u32 = 0x1000_0010;
+    /// Wraps a `MPSDataType` raw value.
     pub const INT8: u32 = 0x2000_0008;
+    /// Wraps a `MPSDataType` raw value.
     pub const INT16: u32 = 0x2000_0010;
+    /// Wraps a `MPSDataType` raw value.
     pub const INT32: u32 = 0x2000_0020;
+    /// Wraps a `MPSDataType` raw value.
     pub const UINT8: u32 = 0x0000_0008;
+    /// Wraps a `MPSDataType` raw value.
     pub const UINT16: u32 = 0x0000_0010;
+    /// Wraps a `MPSDataType` raw value.
     pub const UINT32: u32 = 0x0000_0020;
+    /// Wraps a `MPSDataType` raw value.
     pub const UNORM8: u32 = 0x4000_0008;
 }
 
@@ -31,11 +41,17 @@ pub const fn data_type_size(data_type: u32) -> Option<usize> {
 /// Plain-Rust configuration for `MPSMatrixDescriptor`.
 #[derive(Debug, Clone, Copy)]
 pub struct MatrixDescriptor {
+    /// Corresponds to the `rows` field on `MPSMatrixDescriptor`.
     pub rows: usize,
+    /// Corresponds to the `columns` field on `MPSMatrixDescriptor`.
     pub columns: usize,
+    /// Corresponds to the `matrices` field on `MPSMatrixDescriptor`.
     pub matrices: usize,
+    /// Corresponds to the `row_bytes` field on `MPSMatrixDescriptor`.
     pub row_bytes: usize,
+    /// Corresponds to the `matrix_bytes` field on `MPSMatrixDescriptor`.
     pub matrix_bytes: usize,
+    /// Corresponds to the `data_type` field on `MPSMatrixDescriptor`.
     pub data_type: u32,
 }
 
@@ -87,9 +103,13 @@ impl MatrixDescriptor {
 /// Plain-Rust configuration for `MPSVectorDescriptor`.
 #[derive(Debug, Clone, Copy)]
 pub struct VectorDescriptor {
+    /// Corresponds to the `length` field on `MPSVectorDescriptor`.
     pub length: usize,
+    /// Corresponds to the `vectors` field on `MPSVectorDescriptor`.
     pub vectors: usize,
+    /// Corresponds to the `vector_bytes` field on `MPSVectorDescriptor`.
     pub vector_bytes: usize,
+    /// Corresponds to the `data_type` field on `MPSVectorDescriptor`.
     pub data_type: u32,
 }
 
@@ -127,7 +147,8 @@ impl VectorDescriptor {
 }
 
 macro_rules! opaque_handle {
-    ($name:ident) => {
+    ($name:ident, $doc:expr) => {
+        #[doc = $doc]
         pub struct $name {
             ptr: *mut c_void,
         }
@@ -148,6 +169,7 @@ macro_rules! opaque_handle {
         }
 
         impl $name {
+            /// Returns the retained Objective-C pointer backing this wrapper.
             #[must_use]
             pub const fn as_ptr(&self) -> *mut c_void {
                 self.ptr
@@ -156,7 +178,7 @@ macro_rules! opaque_handle {
     };
 }
 
-opaque_handle!(Matrix);
+opaque_handle!(Matrix, "Wraps `MPSMatrix`.");
 impl Matrix {
     /// Wrap an existing `MTLBuffer` as an `MPSMatrix`.
     #[must_use]
@@ -180,36 +202,42 @@ impl Matrix {
         }
     }
 
+    /// Wraps the corresponding `MPSMatrix` method.
     #[must_use]
     pub fn rows(&self) -> usize {
         // SAFETY: `self.ptr` is a valid `MPSMatrix` pointer while `self` is alive.
         unsafe { ffi::mps_matrix_rows(self.ptr) }
     }
 
+    /// Wraps the corresponding `MPSMatrix` method.
     #[must_use]
     pub fn columns(&self) -> usize {
         // SAFETY: `self.ptr` is a valid `MPSMatrix` pointer while `self` is alive.
         unsafe { ffi::mps_matrix_columns(self.ptr) }
     }
 
+    /// Wraps the corresponding `MPSMatrix` method.
     #[must_use]
     pub fn matrices(&self) -> usize {
         // SAFETY: `self.ptr` is a valid `MPSMatrix` pointer while `self` is alive.
         unsafe { ffi::mps_matrix_matrices(self.ptr) }
     }
 
+    /// Wraps the corresponding `MPSMatrix` method.
     #[must_use]
     pub fn row_bytes(&self) -> usize {
         // SAFETY: `self.ptr` is a valid `MPSMatrix` pointer while `self` is alive.
         unsafe { ffi::mps_matrix_row_bytes(self.ptr) }
     }
 
+    /// Wraps the corresponding `MPSMatrix` method.
     #[must_use]
     pub fn matrix_bytes(&self) -> usize {
         // SAFETY: `self.ptr` is a valid `MPSMatrix` pointer while `self` is alive.
         unsafe { ffi::mps_matrix_matrix_bytes(self.ptr) }
     }
 
+    /// Wraps the corresponding `MPSMatrix` method.
     #[must_use]
     pub fn data_type(&self) -> u32 {
         // SAFETY: `self.ptr` is a valid `MPSMatrix` pointer while `self` is alive.
@@ -217,7 +245,8 @@ impl Matrix {
     }
 }
 
-opaque_handle!(Vector);
+opaque_handle!(Vector, "Wraps `MPSVector`.");
+#[doc(hidden)]
 pub use crate::generated::matrix::*;
 
 impl Vector {
@@ -241,24 +270,28 @@ impl Vector {
         }
     }
 
+    /// Wraps the corresponding `MPSVector` method.
     #[must_use]
     pub fn length(&self) -> usize {
         // SAFETY: `self.ptr` is a valid `MPSVector` pointer while `self` is alive.
         unsafe { ffi::mps_vector_length(self.ptr) }
     }
 
+    /// Wraps the corresponding `MPSVector` method.
     #[must_use]
     pub fn vectors(&self) -> usize {
         // SAFETY: `self.ptr` is a valid `MPSVector` pointer while `self` is alive.
         unsafe { ffi::mps_vector_vectors(self.ptr) }
     }
 
+    /// Wraps the corresponding `MPSVector` method.
     #[must_use]
     pub fn vector_bytes(&self) -> usize {
         // SAFETY: `self.ptr` is a valid `MPSVector` pointer while `self` is alive.
         unsafe { ffi::mps_vector_vector_bytes(self.ptr) }
     }
 
+    /// Wraps the corresponding `MPSVector` method.
     #[must_use]
     pub fn data_type(&self) -> u32 {
         // SAFETY: `self.ptr` is a valid `MPSVector` pointer while `self` is alive.
@@ -269,12 +302,19 @@ impl Vector {
 /// Plain-Rust configuration for `MPSMatrixMultiplication`.
 #[derive(Debug, Clone, Copy)]
 pub struct MatrixMultiplicationDescriptor {
+    /// Corresponds to the `transpose_left` field on `MPSMatrixMultiplication`.
     pub transpose_left: bool,
+    /// Corresponds to the `transpose_right` field on `MPSMatrixMultiplication`.
     pub transpose_right: bool,
+    /// Corresponds to the `result_rows` field on `MPSMatrixMultiplication`.
     pub result_rows: usize,
+    /// Corresponds to the `result_columns` field on `MPSMatrixMultiplication`.
     pub result_columns: usize,
+    /// Corresponds to the `interior_columns` field on `MPSMatrixMultiplication`.
     pub interior_columns: usize,
+    /// Corresponds to the `alpha` field on `MPSMatrixMultiplication`.
     pub alpha: f64,
+    /// Corresponds to the `beta` field on `MPSMatrixMultiplication`.
     pub beta: f64,
 }
 
@@ -316,7 +356,7 @@ impl MatrixMultiplicationDescriptor {
     }
 }
 
-opaque_handle!(MatrixMultiplication);
+opaque_handle!(MatrixMultiplication, "Wraps `MPSMatrixMultiplication`.");
 impl MatrixMultiplication {
     /// Build a configurable GEMM kernel with optional transposition and scaling.
     #[must_use]

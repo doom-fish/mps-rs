@@ -5,25 +5,36 @@ use core::ptr;
 
 /// `MPSStateResourceType` constants.
 pub mod state_resource_type {
+    /// Wraps a `MPSStateResourceType` raw value.
     pub const NONE: usize = 0;
+    /// Wraps a `MPSStateResourceType` raw value.
     pub const BUFFER: usize = 1;
+    /// Wraps a `MPSStateResourceType` raw value.
     pub const TEXTURE: usize = 2;
 }
 
 /// Plain-Rust view of `MPSStateTextureInfo`.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct StateTextureInfo {
+    /// Corresponds to the `width` field on `MPSStateTextureInfo`.
     pub width: usize,
+    /// Corresponds to the `height` field on `MPSStateTextureInfo`.
     pub height: usize,
+    /// Corresponds to the `depth` field on `MPSStateTextureInfo`.
     pub depth: usize,
+    /// Corresponds to the `array_length` field on `MPSStateTextureInfo`.
     pub array_length: usize,
+    /// Corresponds to the `pixel_format` field on `MPSStateTextureInfo`.
     pub pixel_format: usize,
+    /// Corresponds to the `texture_type` field on `MPSStateTextureInfo`.
     pub texture_type: usize,
+    /// Corresponds to the `usage` field on `MPSStateTextureInfo`.
     pub usage: usize,
 }
 
 macro_rules! opaque_handle {
-    ($name:ident) => {
+    ($name:ident, $doc:expr) => {
+        #[doc = $doc]
         pub struct $name {
             ptr: *mut c_void,
         }
@@ -44,6 +55,7 @@ macro_rules! opaque_handle {
         }
 
         impl $name {
+            /// Returns the retained Objective-C pointer backing this wrapper.
             #[must_use]
             pub const fn as_ptr(&self) -> *mut c_void {
                 self.ptr
@@ -52,8 +64,9 @@ macro_rules! opaque_handle {
     };
 }
 
-opaque_handle!(StateResourceList);
+opaque_handle!(StateResourceList, "Wraps `MPSStateResourceList`.");
 impl StateResourceList {
+    /// Wraps a constructor on `MPSStateResourceList`.
     #[must_use]
     pub fn new() -> Option<Self> {
         // SAFETY: This function returns a new StateResourceList or null.
@@ -65,14 +78,16 @@ impl StateResourceList {
         }
     }
 
+    /// Wraps the corresponding `MPSStateResourceList` method.
     pub fn append_buffer(&self, size: usize) {
         // SAFETY: self.ptr is a valid StateResourceList.
         unsafe { ffi::mps_state_resource_list_append_buffer(self.ptr, size) };
     }
 }
 
-opaque_handle!(State);
+opaque_handle!(State, "Wraps `MPSState`.");
 impl State {
+    /// Wraps a constructor on `MPSState`.
     #[must_use]
     pub fn temporary(command_buffer: &MetalCommandBuffer) -> Option<Self> {
         // SAFETY: command_buffer pointer is valid for the call.
@@ -84,6 +99,7 @@ impl State {
         }
     }
 
+    /// Wraps a constructor on `MPSState`.
     #[must_use]
     pub fn temporary_with_buffer_size(
         command_buffer: &MetalCommandBuffer,
@@ -99,6 +115,7 @@ impl State {
         }
     }
 
+    /// Wraps a constructor on `MPSState`.
     #[must_use]
     pub fn new_with_buffer_size(device: &MetalDevice, buffer_size: usize) -> Option<Self> {
         // SAFETY: device pointer is valid for the call.
@@ -110,6 +127,7 @@ impl State {
         }
     }
 
+    /// Wraps a constructor on `MPSState`.
     #[must_use]
     pub fn new_with_resource_list(
         device: &MetalDevice,
@@ -125,6 +143,7 @@ impl State {
         }
     }
 
+    /// Wraps a constructor on `MPSState`.
     #[must_use]
     pub fn temporary_with_resource_list(
         command_buffer: &MetalCommandBuffer,
@@ -143,33 +162,39 @@ impl State {
         }
     }
 
+    /// Wraps the corresponding `MPSState` method.
     #[must_use]
     pub fn resource_count(&self) -> usize {
         // SAFETY: self.ptr is a valid State object.
         unsafe { ffi::mps_state_resource_count(self.ptr) }
     }
 
+    /// Wraps the corresponding `MPSState` method.
     #[must_use]
     pub fn read_count(&self) -> usize {
         // SAFETY: self.ptr is a valid State object.
         unsafe { ffi::mps_state_read_count(self.ptr) }
     }
 
+    /// Wraps the corresponding `MPSState` setter.
     pub fn set_read_count(&self, count: usize) {
         // SAFETY: self.ptr is a valid State object.
         unsafe { ffi::mps_state_set_read_count(self.ptr, count) };
     }
 
+    /// Wraps the corresponding `MPSState` method.
     #[must_use]
     pub fn is_temporary(&self) -> bool {
         unsafe { ffi::mps_state_is_temporary(self.ptr) }
     }
 
+    /// Wraps the corresponding `MPSState` method.
     #[must_use]
     pub fn buffer_size_at_index(&self, index: usize) -> usize {
         unsafe { ffi::mps_state_buffer_size_at_index(self.ptr, index) }
     }
 
+    /// Wraps the corresponding `MPSState` method.
     #[must_use]
     pub fn texture_info_at_index(&self, index: usize) -> StateTextureInfo {
         let mut width = 0;
@@ -203,21 +228,25 @@ impl State {
         }
     }
 
+    /// Wraps the corresponding `MPSState` method.
     #[must_use]
     pub fn resource_type_at_index(&self, index: usize) -> usize {
         unsafe { ffi::mps_state_resource_type_at_index(self.ptr, index) }
     }
 
+    /// Wraps the corresponding `MPSState` method.
     pub fn synchronize_on_command_buffer(&self, command_buffer: &MetalCommandBuffer) {
         unsafe { ffi::mps_state_synchronize_on_command_buffer(self.ptr, command_buffer.as_ptr()) };
     }
 
+    /// Wraps the corresponding `MPSState` method.
     #[must_use]
     pub fn resource_size(&self) -> usize {
         unsafe { ffi::mps_state_resource_size(self.ptr) }
     }
 }
 
+/// Calls `MPSStateBatchIncrementReadCount` for the provided `MPSState` values.
 #[must_use]
 pub fn state_batch_increment_read_count(states: &[&State], amount: isize) -> usize {
     let handles: Vec<_> = states.iter().map(|state| state.as_ptr()).collect();
@@ -229,6 +258,7 @@ pub fn state_batch_increment_read_count(states: &[&State], amount: isize) -> usi
     unsafe { ffi::mps_state_batch_increment_read_count(handles_ptr, handles.len(), amount) }
 }
 
+/// Calls `MPSStateBatchResourceSize` for the provided `MPSState` values.
 #[must_use]
 pub fn state_batch_resource_size(states: &[&State]) -> usize {
     let handles: Vec<_> = states.iter().map(|state| state.as_ptr()).collect();
@@ -240,6 +270,7 @@ pub fn state_batch_resource_size(states: &[&State]) -> usize {
     unsafe { ffi::mps_state_batch_resource_size(handles_ptr, handles.len()) }
 }
 
+/// Calls `MPSStateBatchSynchronize` for the provided `MPSState` values.
 pub fn state_batch_synchronize(states: &[&State], command_buffer: &MetalCommandBuffer) {
     let handles: Vec<_> = states.iter().map(|state| state.as_ptr()).collect();
     let handles_ptr = if handles.is_empty() {

@@ -5,7 +5,8 @@ use core::ffi::c_void;
 use core::ptr;
 
 macro_rules! opaque_handle {
-    ($name:ident) => {
+    ($name:ident, $doc:expr) => {
+        #[doc = $doc]
         pub struct $name {
             ptr: *mut c_void,
         }
@@ -26,6 +27,7 @@ macro_rules! opaque_handle {
         }
 
         impl $name {
+            /// Returns the retained Objective-C pointer backing this wrapper.
             #[must_use]
             pub const fn as_ptr(&self) -> *mut c_void {
                 self.ptr
@@ -175,23 +177,32 @@ macro_rules! impl_binary_methods {
 /// `MPSScaleTransform` values used by resampling kernels.
 #[derive(Debug, Clone, Copy)]
 pub struct ScaleTransform {
+    /// Corresponds to the `scale_x` field on `MPSScaleTransform`.
     pub scale_x: f64,
+    /// Corresponds to the `scale_y` field on `MPSScaleTransform`.
     pub scale_y: f64,
+    /// Corresponds to the `translate_x` field on `MPSScaleTransform`.
     pub translate_x: f64,
+    /// Corresponds to the `translate_y` field on `MPSScaleTransform`.
     pub translate_y: f64,
 }
 
 /// Plain-Rust configuration for `MPSImageHistogramInfo`.
 #[derive(Debug, Clone, Copy)]
 pub struct HistogramInfo {
+    /// Corresponds to the `number_of_entries` field on `MPSImageHistogramInfo`.
     pub number_of_entries: usize,
+    /// Corresponds to the `histogram_for_alpha` field on `MPSImageHistogramInfo`.
     pub histogram_for_alpha: bool,
+    /// Corresponds to the `min_pixel_value` field on `MPSImageHistogramInfo`.
     pub min_pixel_value: [f32; 4],
+    /// Corresponds to the `max_pixel_value` field on `MPSImageHistogramInfo`.
     pub max_pixel_value: [f32; 4],
 }
 
-opaque_handle!(ImageGaussianBlur);
+opaque_handle!(ImageGaussianBlur, "Wraps `MPSImageGaussianBlur`.");
 impl ImageGaussianBlur {
+    /// Wraps a constructor on `MPSImageGaussianBlur`.
     #[must_use]
     pub fn new(device: &MetalDevice, sigma: f32) -> Option<Self> {
         // SAFETY: `device` exposes a valid `MTLDevice` pointer.
@@ -205,8 +216,9 @@ impl ImageGaussianBlur {
 }
 impl_unary_methods!(ImageGaussianBlur);
 
-opaque_handle!(ImageBox);
+opaque_handle!(ImageBox, "Wraps `MPSImageBox`.");
 impl ImageBox {
+    /// Wraps a constructor on `MPSImageBox`.
     #[must_use]
     pub fn new(device: &MetalDevice, kernel_width: usize, kernel_height: usize) -> Option<Self> {
         // SAFETY: `device` exposes a valid `MTLDevice` pointer.
@@ -220,8 +232,9 @@ impl ImageBox {
 }
 impl_unary_methods!(ImageBox);
 
-opaque_handle!(ImageSobel);
+opaque_handle!(ImageSobel, "Wraps `MPSImageSobel`.");
 impl ImageSobel {
+    /// Wraps a constructor on `MPSImageSobel`.
     #[must_use]
     pub fn new(device: &MetalDevice) -> Option<Self> {
         // SAFETY: `device` exposes a valid `MTLDevice` pointer.
@@ -233,6 +246,7 @@ impl ImageSobel {
         }
     }
 
+    /// Wraps the corresponding `MPSImageSobel` method.
     #[must_use]
     pub fn with_transform(device: &MetalDevice, transform: [f32; 3]) -> Option<Self> {
         // SAFETY: `transform` lives for the duration of the FFI call.
@@ -246,8 +260,9 @@ impl ImageSobel {
 }
 impl_unary_methods!(ImageSobel);
 
-opaque_handle!(ImageMedian);
+opaque_handle!(ImageMedian, "Wraps `MPSImageMedian`.");
 impl ImageMedian {
+    /// Wraps a constructor on `MPSImageMedian`.
     #[must_use]
     pub fn new(device: &MetalDevice, kernel_diameter: usize) -> Option<Self> {
         // SAFETY: `device` exposes a valid `MTLDevice` pointer.
@@ -261,8 +276,9 @@ impl ImageMedian {
 }
 impl_unary_methods!(ImageMedian);
 
-opaque_handle!(ImageConvolution);
+opaque_handle!(ImageConvolution, "Wraps `MPSImageConvolution`.");
 impl ImageConvolution {
+    /// Wraps a constructor on `MPSImageConvolution`.
     #[must_use]
     pub fn new(
         device: &MetalDevice,
@@ -292,8 +308,9 @@ impl ImageConvolution {
 }
 impl_unary_methods!(ImageConvolution);
 
-opaque_handle!(ImageBilinearScale);
+opaque_handle!(ImageBilinearScale, "Wraps `MPSImageBilinearScale`.");
 impl ImageBilinearScale {
+    /// Wraps a constructor on `MPSImageBilinearScale`.
     #[must_use]
     pub fn new(device: &MetalDevice) -> Option<Self> {
         // SAFETY: `device` exposes a valid `MTLDevice` pointer.
@@ -321,8 +338,9 @@ impl ImageBilinearScale {
 }
 impl_unary_methods!(ImageBilinearScale);
 
-opaque_handle!(ImageLanczosScale);
+opaque_handle!(ImageLanczosScale, "Wraps `MPSImageLanczosScale`.");
 impl ImageLanczosScale {
+    /// Wraps a constructor on `MPSImageLanczosScale`.
     #[must_use]
     pub fn new(device: &MetalDevice) -> Option<Self> {
         // SAFETY: `device` exposes a valid `MTLDevice` pointer.
@@ -350,8 +368,9 @@ impl ImageLanczosScale {
 }
 impl_unary_methods!(ImageLanczosScale);
 
-opaque_handle!(ImageThresholdBinary);
+opaque_handle!(ImageThresholdBinary, "Wraps `MPSImageThresholdBinary`.");
 impl ImageThresholdBinary {
+    /// Wraps a constructor on `MPSImageThresholdBinary`.
     #[must_use]
     pub fn new(device: &MetalDevice, threshold_value: f32, maximum_value: f32) -> Option<Self> {
         // SAFETY: `device` exposes a valid `MTLDevice` pointer.
@@ -370,6 +389,7 @@ impl ImageThresholdBinary {
         }
     }
 
+    /// Wraps the corresponding `MPSImageThresholdBinary` method.
     #[must_use]
     pub fn with_transform(
         device: &MetalDevice,
@@ -395,8 +415,9 @@ impl ImageThresholdBinary {
 }
 impl_unary_methods!(ImageThresholdBinary);
 
-opaque_handle!(ImageHistogram);
+opaque_handle!(ImageHistogram, "Wraps `MPSImageHistogram`.");
 impl ImageHistogram {
+    /// Wraps a constructor on `MPSImageHistogram`.
     #[must_use]
     pub fn new(device: &MetalDevice, info: HistogramInfo) -> Option<Self> {
         // SAFETY: `info` arrays live for the duration of the FFI call.
@@ -464,8 +485,9 @@ impl ImageHistogram {
     }
 }
 
-opaque_handle!(ImageStatisticsMinAndMax);
+opaque_handle!(ImageStatisticsMinAndMax, "Wraps `MPSImageStatisticsMinAndMax`.");
 impl ImageStatisticsMinAndMax {
+    /// Wraps a constructor on `MPSImageStatisticsMinAndMax`.
     #[must_use]
     pub fn new(device: &MetalDevice) -> Option<Self> {
         // SAFETY: `device` exposes a valid `MTLDevice` pointer.
@@ -479,8 +501,9 @@ impl ImageStatisticsMinAndMax {
 }
 impl_unary_methods!(ImageStatisticsMinAndMax);
 
-opaque_handle!(ImageStatisticsMean);
+opaque_handle!(ImageStatisticsMean, "Wraps `MPSImageStatisticsMean`.");
 impl ImageStatisticsMean {
+    /// Wraps a constructor on `MPSImageStatisticsMean`.
     #[must_use]
     pub fn new(device: &MetalDevice) -> Option<Self> {
         // SAFETY: `device` exposes a valid `MTLDevice` pointer.
@@ -494,8 +517,9 @@ impl ImageStatisticsMean {
 }
 impl_unary_methods!(ImageStatisticsMean);
 
-opaque_handle!(ImageReduceRowMin);
+opaque_handle!(ImageReduceRowMin, "Wraps `MPSImageReduceRowMin`.");
 impl ImageReduceRowMin {
+    /// Wraps a constructor on `MPSImageReduceRowMin`.
     #[must_use]
     pub fn new(device: &MetalDevice) -> Option<Self> {
         // SAFETY: `device` exposes a valid `MTLDevice` pointer.
@@ -509,8 +533,9 @@ impl ImageReduceRowMin {
 }
 impl_unary_methods!(ImageReduceRowMin);
 
-opaque_handle!(ImageReduceRowMax);
+opaque_handle!(ImageReduceRowMax, "Wraps `MPSImageReduceRowMax`.");
 impl ImageReduceRowMax {
+    /// Wraps a constructor on `MPSImageReduceRowMax`.
     #[must_use]
     pub fn new(device: &MetalDevice) -> Option<Self> {
         // SAFETY: `device` exposes a valid `MTLDevice` pointer.
@@ -524,8 +549,9 @@ impl ImageReduceRowMax {
 }
 impl_unary_methods!(ImageReduceRowMax);
 
-opaque_handle!(ImageReduceRowMean);
+opaque_handle!(ImageReduceRowMean, "Wraps `MPSImageReduceRowMean`.");
 impl ImageReduceRowMean {
+    /// Wraps a constructor on `MPSImageReduceRowMean`.
     #[must_use]
     pub fn new(device: &MetalDevice) -> Option<Self> {
         // SAFETY: `device` exposes a valid `MTLDevice` pointer.
@@ -539,8 +565,9 @@ impl ImageReduceRowMean {
 }
 impl_unary_methods!(ImageReduceRowMean);
 
-opaque_handle!(ImageReduceRowSum);
+opaque_handle!(ImageReduceRowSum, "Wraps `MPSImageReduceRowSum`.");
 impl ImageReduceRowSum {
+    /// Wraps a constructor on `MPSImageReduceRowSum`.
     #[must_use]
     pub fn new(device: &MetalDevice) -> Option<Self> {
         // SAFETY: `device` exposes a valid `MTLDevice` pointer.
@@ -554,8 +581,9 @@ impl ImageReduceRowSum {
 }
 impl_unary_methods!(ImageReduceRowSum);
 
-opaque_handle!(ImageAdd);
+opaque_handle!(ImageAdd, "Wraps `MPSImageAdd`.");
 impl ImageAdd {
+    /// Wraps a constructor on `MPSImageAdd`.
     #[must_use]
     pub fn new(device: &MetalDevice) -> Option<Self> {
         // SAFETY: `device` exposes a valid `MTLDevice` pointer.
@@ -607,11 +635,13 @@ impl ImageScaleAndAdd {
         Some(Self { inner })
     }
 
+    /// Wraps a Metal Performance Shaders raw value.
     #[must_use]
     pub const fn as_ptr(&self) -> *mut c_void {
         self.inner.as_ptr()
     }
 
+    /// Wraps the corresponding `MPSImageAdd` encode entry point.
     pub fn encode_image(
         &self,
         command_buffer: &CommandBuffer,
@@ -623,6 +653,7 @@ impl ImageScaleAndAdd {
             .encode_image(command_buffer, primary, secondary, destination);
     }
 
+    /// Wraps the corresponding `MPSImageAdd` encode entry point.
     pub fn encode_texture(
         &self,
         command_buffer: &CommandBuffer,
@@ -634,18 +665,22 @@ impl ImageScaleAndAdd {
             .encode_texture(command_buffer, primary, secondary, destination);
     }
 
+    /// Wraps the corresponding `MPSImageAdd` setter.
     pub fn set_primary_edge_mode(&self, edge_mode: usize) {
         self.inner.set_primary_edge_mode(edge_mode);
     }
 
+    /// Wraps the corresponding `MPSImageAdd` setter.
     pub fn set_secondary_edge_mode(&self, edge_mode: usize) {
         self.inner.set_secondary_edge_mode(edge_mode);
     }
 
+    /// Wraps the corresponding `MPSImageAdd` setter.
     pub fn set_clip_rect(&self, region: ImageRegion) {
         self.inner.set_clip_rect(region);
     }
 
+    /// Wraps the corresponding `MPSImageAdd` setter.
     pub fn set_clamp(&self, minimum_value: f32, maximum_value: f32) {
         self.inner.set_clamp(minimum_value, maximum_value);
     }

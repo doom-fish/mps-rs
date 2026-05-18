@@ -1,20 +1,31 @@
 #![doc = include_str!("../README.md")]
 #![cfg_attr(docsrs, feature(doc_cfg))]
+#![allow(clippy::doc_markdown)]
 #![allow(clippy::missing_const_for_fn)]
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::module_name_repetitions)]
 #![allow(clippy::must_use_candidate)]
 
+/// Metal Performance Shaders core device and command-buffer wrappers.
 pub mod core;
+/// Error types returned by the safe Metal Performance Shaders wrappers.
 pub mod error;
+#[doc(hidden)]
 pub mod ffi;
+/// Metal Performance Shaders image-filter wrappers.
 pub mod filters;
 mod generated;
+/// Metal Performance Shaders image wrappers and related raw-value helpers.
 pub mod image;
+/// Metal Performance Shaders matrix and vector wrappers.
 pub mod matrix;
+/// Metal Performance Shaders NDArray wrappers.
 pub mod ndarray;
+/// Metal Performance Shaders neural-network graph and optimizer wrappers.
 pub mod neural;
+/// Metal Performance Shaders ray-tracing wrappers.
 pub mod ray;
+/// Metal Performance Shaders state wrappers.
 pub mod state;
 
 pub use crate::core::{

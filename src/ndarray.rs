@@ -4,7 +4,8 @@ use core::ffi::c_void;
 use core::ptr;
 
 macro_rules! opaque_handle {
-    ($name:ident) => {
+    ($name:ident, $doc:expr) => {
+        #[doc = $doc]
         pub struct $name {
             ptr: *mut c_void,
         }
@@ -25,6 +26,7 @@ macro_rules! opaque_handle {
         }
 
         impl $name {
+            /// Returns the retained Objective-C pointer backing this wrapper.
             #[must_use]
             pub const fn as_ptr(&self) -> *mut c_void {
                 self.ptr
@@ -33,10 +35,12 @@ macro_rules! opaque_handle {
     };
 }
 
+#[doc(hidden)]
 pub use crate::generated::ndarray::*;
 
-opaque_handle!(NDArrayDescriptor);
+opaque_handle!(NDArrayDescriptor, "Wraps `MPSNDArrayDescriptor`.");
 impl NDArrayDescriptor {
+    /// Wraps the corresponding `MPSNDArrayDescriptor` method.
     #[must_use]
     pub fn with_dimension_sizes(data_type: u32, dimension_sizes: &[usize]) -> Option<Self> {
         // SAFETY: dimension_sizes.as_ptr() is valid for dimension_sizes.len() elements.
@@ -54,23 +58,27 @@ impl NDArrayDescriptor {
         }
     }
 
+    /// Wraps the corresponding `MPSNDArrayDescriptor` method.
     #[must_use]
     pub fn data_type(&self) -> u32 {
         // SAFETY: self.ptr is a valid NDArrayDescriptor.
         unsafe { ffi::mps_ndarray_descriptor_data_type(self.ptr) }
     }
 
+    /// Wraps the corresponding `MPSNDArrayDescriptor` setter.
     pub fn set_data_type(&self, data_type: u32) {
         // SAFETY: self.ptr is a valid NDArrayDescriptor.
         unsafe { ffi::mps_ndarray_descriptor_set_data_type(self.ptr, data_type) };
     }
 
+    /// Wraps the corresponding `MPSNDArrayDescriptor` method.
     #[must_use]
     pub fn number_of_dimensions(&self) -> usize {
         // SAFETY: self.ptr is a valid NDArrayDescriptor.
         unsafe { ffi::mps_ndarray_descriptor_number_of_dimensions(self.ptr) }
     }
 
+    /// Wraps the corresponding `MPSNDArrayDescriptor` setter.
     pub fn set_number_of_dimensions(&self, number_of_dimensions: usize) {
         // SAFETY: self.ptr is a valid NDArrayDescriptor.
         unsafe {
@@ -78,12 +86,14 @@ impl NDArrayDescriptor {
         };
     }
 
+    /// Wraps the corresponding `MPSNDArrayDescriptor` method.
     #[must_use]
     pub fn length_of_dimension(&self, dimension_index: usize) -> usize {
         // SAFETY: self.ptr is a valid NDArrayDescriptor and dimension_index is in bounds.
         unsafe { ffi::mps_ndarray_descriptor_length_of_dimension(self.ptr, dimension_index) }
     }
 
+    /// Wraps the corresponding `MPSNDArrayDescriptor` method.
     pub fn reshape_with_dimension_sizes(&self, dimension_sizes: &[usize]) {
         // SAFETY: dimension_sizes.as_ptr() is valid for dimension_sizes.len() elements.
         unsafe {
@@ -95,6 +105,7 @@ impl NDArrayDescriptor {
         };
     }
 
+    /// Wraps the corresponding `MPSNDArrayDescriptor` method.
     pub fn transpose_dimension(&self, dimension_index: usize, other_dimension_index: usize) {
         // SAFETY: Both dimension indices are validated by MPS.
         unsafe {
@@ -107,8 +118,9 @@ impl NDArrayDescriptor {
     }
 }
 
-opaque_handle!(NDArray);
+opaque_handle!(NDArray, "Wraps `MPSNDArray`.");
 impl NDArray {
+    /// Wraps a constructor on `MPSNDArray`.
     #[must_use]
     pub fn new(device: &MetalDevice, descriptor: &NDArrayDescriptor) -> Option<Self> {
         // SAFETY: Both pointers come from safe wrappers and are valid for the call.
@@ -121,6 +133,7 @@ impl NDArray {
         }
     }
 
+    /// Wraps a constructor on `MPSNDArray`.
     #[must_use]
     pub fn scalar(device: &MetalDevice, value: f64) -> Option<Self> {
         // SAFETY: device pointer is valid and we return null or a +1 retained NDArray.
@@ -132,6 +145,7 @@ impl NDArray {
         }
     }
 
+    /// Wraps a constructor on `MPSNDArray`.
     #[must_use]
     pub fn new_with_buffer(
         buffer: &MetalBuffer,
@@ -148,21 +162,25 @@ impl NDArray {
         }
     }
 
+    /// Wraps the corresponding `MPSNDArray` method.
     #[must_use]
     pub fn data_type(&self) -> u32 {
         unsafe { ffi::mps_ndarray_data_type(self.ptr) }
     }
 
+    /// Wraps the corresponding `MPSNDArray` method.
     #[must_use]
     pub fn number_of_dimensions(&self) -> usize {
         unsafe { ffi::mps_ndarray_number_of_dimensions(self.ptr) }
     }
 
+    /// Wraps the corresponding `MPSNDArray` method.
     #[must_use]
     pub fn length_of_dimension(&self, dimension_index: usize) -> usize {
         unsafe { ffi::mps_ndarray_length_of_dimension(self.ptr, dimension_index) }
     }
 
+    /// Wraps the corresponding `MPSNDArray` method.
     #[must_use]
     pub fn descriptor(&self) -> Option<NDArrayDescriptor> {
         let ptr = unsafe { ffi::mps_ndarray_descriptor(self.ptr) };
@@ -173,14 +191,16 @@ impl NDArray {
         }
     }
 
+    /// Wraps the corresponding `MPSNDArray` method.
     #[must_use]
     pub fn resource_size(&self) -> usize {
         unsafe { ffi::mps_ndarray_resource_size(self.ptr) }
     }
 }
 
-opaque_handle!(NDArrayIdentity);
+opaque_handle!(NDArrayIdentity, "Wraps `MPSNDArrayIdentity`.");
 impl NDArrayIdentity {
+    /// Wraps a constructor on `MPSNDArrayIdentity`.
     #[must_use]
     pub fn new(device: &MetalDevice) -> Option<Self> {
         let ptr = unsafe { ffi::mps_ndarray_identity_new(device.as_ptr()) };
@@ -191,6 +211,7 @@ impl NDArrayIdentity {
         }
     }
 
+    /// Wraps the corresponding `MPSNDArrayIdentity` method.
     #[must_use]
     pub fn reshape(&self, source: &NDArray, dimension_sizes: &[usize]) -> Option<NDArray> {
         let ptr = unsafe {
@@ -210,6 +231,7 @@ impl NDArrayIdentity {
         }
     }
 
+    /// Wraps the corresponding `MPSNDArrayIdentity` method.
     #[must_use]
     pub fn reshape_with_command_buffer(
         &self,
@@ -234,6 +256,7 @@ impl NDArrayIdentity {
         }
     }
 
+    /// Wraps the corresponding `MPSNDArrayIdentity` method.
     pub fn reshape_into(
         &self,
         command_buffer: Option<&MetalCommandBuffer>,
@@ -256,8 +279,9 @@ impl NDArrayIdentity {
     }
 }
 
-opaque_handle!(NDArrayMatrixMultiplication);
+opaque_handle!(NDArrayMatrixMultiplication, "Wraps `MPSNDArrayMatrixMultiplication`.");
 impl NDArrayMatrixMultiplication {
+    /// Wraps a constructor on `MPSNDArrayMatrixMultiplication`.
     #[must_use]
     pub fn new(device: &MetalDevice, source_count: usize) -> Option<Self> {
         let ptr =
@@ -269,24 +293,29 @@ impl NDArrayMatrixMultiplication {
         }
     }
 
+    /// Wraps the corresponding `MPSNDArrayMatrixMultiplication` method.
     #[must_use]
     pub fn alpha(&self) -> f64 {
         unsafe { ffi::mps_ndarray_matrix_multiplication_alpha(self.ptr) }
     }
 
+    /// Wraps the corresponding `MPSNDArrayMatrixMultiplication` setter.
     pub fn set_alpha(&self, alpha: f64) {
         unsafe { ffi::mps_ndarray_matrix_multiplication_set_alpha(self.ptr, alpha) };
     }
 
+    /// Wraps the corresponding `MPSNDArrayMatrixMultiplication` method.
     #[must_use]
     pub fn beta(&self) -> f64 {
         unsafe { ffi::mps_ndarray_matrix_multiplication_beta(self.ptr) }
     }
 
+    /// Wraps the corresponding `MPSNDArrayMatrixMultiplication` setter.
     pub fn set_beta(&self, beta: f64) {
         unsafe { ffi::mps_ndarray_matrix_multiplication_set_beta(self.ptr, beta) };
     }
 
+    /// Wraps the corresponding `MPSNDArrayMatrixMultiplication` encode entry point.
     #[must_use]
     pub fn encode(
         &self,
@@ -314,6 +343,7 @@ impl NDArrayMatrixMultiplication {
         }
     }
 
+    /// Wraps the corresponding `MPSNDArrayMatrixMultiplication` encode entry point.
     pub fn encode_to_destination(
         &self,
         command_buffer: &MetalCommandBuffer,
