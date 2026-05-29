@@ -16,8 +16,7 @@ let package = Package(
     targets: [
         .target(
             name: "AppleMPSBridge",
-            path: "Sources/AppleMPSBridge",
-            publicHeadersPath: "include"
+            path: "Sources/AppleMPSBridge"
         )
     ]
 )
