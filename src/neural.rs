@@ -646,6 +646,24 @@ impl CnnConvolution {
         if kernel_weights.is_empty() {
             return None;
         }
+        // MPS reads `kernelWeights` according to the descriptor geometry; a slice
+        // shorter than this would cause an out-of-bounds read in the driver.
+        // Layout: outputFeatureChannels * kernelHeight * kernelWidth * (inputFeatureChannels / groups).
+        let groups = descriptor.groups().max(1);
+        let required_weights = descriptor
+            .output_feature_channels()
+            .checked_mul(descriptor.kernel_height())
+            .and_then(|v| v.checked_mul(descriptor.kernel_width()))
+            .and_then(|v| v.checked_mul(descriptor.input_feature_channels() / groups))?;
+        if kernel_weights.len() < required_weights {
+            return None;
+        }
+        // `biasTerms`, when supplied, must hold at least one value per output channel.
+        if let Some(bias) = bias_terms {
+            if bias.len() < descriptor.output_feature_channels() {
+                return None;
+            }
+        }
         let bias_terms_ptr = bias_terms.map_or(ptr::null(), <[f32]>::as_ptr);
         let ptr = unsafe {
             ffi::mps_cnn_convolution_new(
