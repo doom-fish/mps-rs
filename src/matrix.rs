@@ -276,16 +276,20 @@ impl VectorDescriptor {
 }
 
 macro_rules! opaque_handle {
+    ($name:ident, $doc:expr, sync) => {
+        opaque_handle!($name, $doc);
+
+        // SAFETY: MPS handles are opaque pointers to thread-safe Swift/ObjC objects.
+        unsafe impl Sync for $name {}
+    };
     ($name:ident, $doc:expr) => {
         #[doc = $doc]
         pub struct $name {
             ptr: *mut c_void,
         }
 
-        // SAFETY: MPS handles are opaque pointers to thread-safe Swift/ObjC objects.
+        // SAFETY: MPS objects may move between threads; kernels and descriptors are used by one thread at a time.
         unsafe impl Send for $name {}
-        // SAFETY: MPS handles are opaque pointers to thread-safe Swift/ObjC objects.
-        unsafe impl Sync for $name {}
 
         impl Drop for $name {
             fn drop(&mut self) {
@@ -307,7 +311,7 @@ macro_rules! opaque_handle {
     };
 }
 
-opaque_handle!(Matrix, "Wraps `MPSMatrix`.");
+opaque_handle!(Matrix, "Wraps `MPSMatrix`.", sync);
 impl Matrix {
     /// Wrap an existing `MTLBuffer` as an `MPSMatrix`.
     pub fn new_with_buffer(buffer: &MetalBuffer, descriptor: MatrixDescriptor) -> Result<Self> {
@@ -374,7 +378,7 @@ impl Matrix {
     }
 }
 
-opaque_handle!(Vector, "Wraps `MPSVector`.");
+opaque_handle!(Vector, "Wraps `MPSVector`.", sync);
 #[doc(hidden)]
 pub use crate::generated::matrix::*;
 

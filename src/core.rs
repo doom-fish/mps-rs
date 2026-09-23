@@ -16,16 +16,20 @@ pub mod device_options {
 }
 
 macro_rules! opaque_handle {
+    ($name:ident, $doc:expr, sync) => {
+        opaque_handle!($name, $doc);
+
+        // SAFETY: MPS handles are opaque pointers to thread-safe Swift/ObjC objects.
+        unsafe impl Sync for $name {}
+    };
     ($name:ident, $doc:expr) => {
         #[doc = $doc]
         pub struct $name {
             ptr: *mut c_void,
         }
 
-        // SAFETY: MPS handles are opaque pointers to thread-safe Swift/ObjC objects.
+        // SAFETY: MPS objects may move between threads; kernels and descriptors are used by one thread at a time.
         unsafe impl Send for $name {}
-        // SAFETY: MPS handles are opaque pointers to thread-safe Swift/ObjC objects.
-        unsafe impl Sync for $name {}
 
         impl Drop for $name {
             fn drop(&mut self) {
@@ -53,7 +57,11 @@ pub fn supports_mtl_device(device: &MetalDevice) -> bool {
     unsafe { ffi::mps_supports_mtl_device(device.as_ptr()) }
 }
 
-opaque_handle!(PreferredDevice, "Owns the retained `MTLDevice` returned by `MPSGetPreferredDevice`.");
+opaque_handle!(
+    PreferredDevice,
+    "Owns the retained `MTLDevice` returned by `MPSGetPreferredDevice`.",
+    sync
+);
 impl PreferredDevice {
     /// Wraps the corresponding `MPSGetPreferredDevice` conversion helper.
     #[must_use]
@@ -90,7 +98,7 @@ pub fn set_heap_cache_duration(command_buffer: &MetalCommandBuffer, seconds: f64
     unsafe { ffi::mps_set_heap_cache_duration(command_buffer.as_ptr(), seconds) };
 }
 
-opaque_handle!(Predicate, "Wraps `MPSPredicate`.");
+opaque_handle!(Predicate, "Wraps `MPSPredicate`.", sync);
 impl Predicate {
     /// Wraps a constructor on `MPSPredicate`.
     #[must_use]

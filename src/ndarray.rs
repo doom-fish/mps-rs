@@ -6,16 +6,20 @@ use core::ffi::c_void;
 use core::ptr;
 
 macro_rules! opaque_handle {
+    ($name:ident, $doc:expr, sync) => {
+        opaque_handle!($name, $doc);
+
+        // SAFETY: MPS handles are opaque pointers to thread-safe Swift/ObjC objects.
+        unsafe impl Sync for $name {}
+    };
     ($name:ident, $doc:expr) => {
         #[doc = $doc]
         pub struct $name {
             ptr: *mut c_void,
         }
 
-        // SAFETY: MPS handles are opaque pointers to thread-safe Swift/ObjC objects.
+        // SAFETY: MPS objects may move between threads; kernels and descriptors are used by one thread at a time.
         unsafe impl Send for $name {}
-        // SAFETY: MPS handles are opaque pointers to thread-safe Swift/ObjC objects.
-        unsafe impl Sync for $name {}
 
         impl Drop for $name {
             fn drop(&mut self) {
@@ -188,7 +192,7 @@ fn validate_dimension_sizes(dimension_sizes: &[usize]) -> Result<()> {
         ))
 }
 
-opaque_handle!(NDArray, "Wraps `MPSNDArray`.");
+opaque_handle!(NDArray, "Wraps `MPSNDArray`.", sync);
 impl NDArray {
     /// Wraps a constructor on `MPSNDArray`.
     #[must_use]

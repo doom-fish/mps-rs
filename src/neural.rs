@@ -58,16 +58,20 @@ pub mod nn_regularization_type {
 pub use crate::generated::neural::*;
 
 macro_rules! opaque_handle {
+    ($name:ident, $doc:expr, sync) => {
+        opaque_handle!($name, $doc);
+
+        // SAFETY: MPS handles are opaque pointers to thread-safe Swift/ObjC objects.
+        unsafe impl Sync for $name {}
+    };
     ($name:ident, $doc:expr) => {
         #[doc = $doc]
         pub struct $name {
             ptr: *mut c_void,
         }
 
-        // SAFETY: MPS handles are opaque pointers to thread-safe Swift/ObjC objects.
+        // SAFETY: MPS objects may move between threads; kernels and descriptors are used by one thread at a time.
         unsafe impl Send for $name {}
-        // SAFETY: MPS handles are opaque pointers to thread-safe Swift/ObjC objects.
-        unsafe impl Sync for $name {}
 
         impl Drop for $name {
             fn drop(&mut self) {
@@ -299,7 +303,7 @@ impl NNImageNode {
     }
 }
 
-opaque_handle!(CnnNeuronReluNode, "Wraps `MPSCNNNeuronReLUNode`.");
+opaque_handle!(CnnNeuronReluNode, "Wraps `MPSCNNNeuronReLUNode`.", sync);
 impl CnnNeuronReluNode {
     /// Wraps a constructor on `MPSCNNNeuronReLUNode`.
     #[must_use]
@@ -314,7 +318,7 @@ impl CnnNeuronReluNode {
 }
 impl_filter_result_image!(CnnNeuronReluNode);
 
-opaque_handle!(CnnPoolingMaxNode, "Wraps `MPSCNNPoolingMaxNode`.");
+opaque_handle!(CnnPoolingMaxNode, "Wraps `MPSCNNPoolingMaxNode`.", sync);
 impl CnnPoolingMaxNode {
     /// Wraps a constructor on `MPSCNNPoolingMaxNode`.
     #[must_use]
@@ -330,7 +334,7 @@ impl CnnPoolingMaxNode {
 }
 impl_filter_result_image!(CnnPoolingMaxNode);
 
-opaque_handle!(CnnSoftMaxNode, "Wraps `MPSCNNSoftMaxNode`.");
+opaque_handle!(CnnSoftMaxNode, "Wraps `MPSCNNSoftMaxNode`.", sync);
 impl CnnSoftMaxNode {
     /// Wraps a constructor on `MPSCNNSoftMax`.
     #[must_use]
@@ -345,7 +349,11 @@ impl CnnSoftMaxNode {
 }
 impl_filter_result_image!(CnnSoftMaxNode);
 
-opaque_handle!(CnnUpsamplingNearestNode, "Wraps `MPSCNNUpsamplingNearestNode`.");
+opaque_handle!(
+    CnnUpsamplingNearestNode,
+    "Wraps `MPSCNNUpsamplingNearestNode`.",
+    sync
+);
 impl CnnUpsamplingNearestNode {
     /// Wraps a constructor on `MPSCNNUpsamplingNearestNode`.
     #[must_use]
@@ -902,7 +910,11 @@ impl CnnConvolution {
     }
 }
 
-opaque_handle!(CnnConvolutionWeightsAndBiasesState, "Wraps `MPSCNNConvolutionWeightsAndBiasesState`.");
+opaque_handle!(
+    CnnConvolutionWeightsAndBiasesState,
+    "Wraps `MPSCNNConvolutionWeightsAndBiasesState`.",
+    sync
+);
 impl CnnConvolutionWeightsAndBiasesState {
     /// Wraps a constructor on `MPSCNNConvolutionWeightsAndBiasesState`.
     #[must_use]
@@ -1681,7 +1693,11 @@ impl LstmDescriptor {
     }
 }
 
-opaque_handle!(RnnRecurrentImageState, "Wraps `MPSRNNRecurrentImageState`.");
+opaque_handle!(
+    RnnRecurrentImageState,
+    "Wraps `MPSRNNRecurrentImageState`.",
+    sync
+);
 impl RnnRecurrentImageState {
     /// Wraps the corresponding `MPSRNNRecurrentImageState` method.
     #[must_use]

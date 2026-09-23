@@ -108,3 +108,41 @@ fn histograms_need_room_for_every_bin() {
         .sum();
     assert_eq!(red, 16);
 }
+
+trait AmbiguousIfSync<A> {
+    fn check() {}
+}
+
+impl<T: ?Sized> AmbiguousIfSync<()> for T {}
+
+impl<T: ?Sized + Sync> AmbiguousIfSync<u8> for T {}
+
+const fn assert_send<T: Send>() {}
+
+const fn assert_sync<T: Sync>() {}
+
+#[test]
+fn kernels_and_descriptors_are_send_but_not_sync() {
+    assert_send::<apple_mps::MatrixMultiplication>();
+    assert_send::<apple_mps::ImageGaussianBlur>();
+    assert_send::<apple_mps::CnnConvolutionDescriptor>();
+    assert_send::<apple_mps::PolygonAccelerationStructure>();
+    <apple_mps::MatrixMultiplication as AmbiguousIfSync<_>>::check();
+    <apple_mps::NDArrayMatrixMultiplication as AmbiguousIfSync<_>>::check();
+    <apple_mps::NDArrayDescriptor as AmbiguousIfSync<_>>::check();
+    <apple_mps::ImageGaussianBlur as AmbiguousIfSync<_>>::check();
+    <apple_mps::ImageHistogram as AmbiguousIfSync<_>>::check();
+    <apple_mps::CnnConvolution as AmbiguousIfSync<_>>::check();
+    <apple_mps::CnnConvolutionDescriptor as AmbiguousIfSync<_>>::check();
+    <apple_mps::NNGraph as AmbiguousIfSync<_>>::check();
+    <apple_mps::NNOptimizerAdam as AmbiguousIfSync<_>>::check();
+    <apple_mps::RayIntersector as AmbiguousIfSync<_>>::check();
+    <apple_mps::PolygonAccelerationStructure as AmbiguousIfSync<_>>::check();
+    <apple_mps::MpsCommandBuffer as AmbiguousIfSync<_>>::check();
+    <apple_mps::State as AmbiguousIfSync<_>>::check();
+    assert_sync::<apple_mps::Matrix>();
+    assert_sync::<apple_mps::Vector>();
+    assert_sync::<apple_mps::NDArray>();
+    assert_sync::<Image>();
+    assert_sync::<Predicate>();
+}
