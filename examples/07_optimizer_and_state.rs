@@ -74,13 +74,15 @@ fn main() {
     assert_eq!(base.regularization_type(), nn_regularization_type::NONE);
 
     let command_buffer = queue.new_command_buffer().expect("command buffer");
-    optimizer.encode_vector(
-        &command_buffer,
-        &gradient_vector,
-        &values_vector,
-        None,
-        &result_vector,
-    );
+    optimizer
+        .encode_vector(
+            &command_buffer,
+            &gradient_vector,
+            &values_vector,
+            None,
+            &result_vector,
+        )
+        .expect("encode");
     command_buffer.commit().expect("commit");
     command_buffer
         .wait_until_completed()

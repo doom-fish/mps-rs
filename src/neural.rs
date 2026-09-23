@@ -1,6 +1,7 @@
+use crate::error::{Error, Result};
 use crate::ffi;
 use crate::image::Image;
-use crate::matrix::{Matrix, Vector};
+use crate::matrix::{data_type, Matrix, Vector};
 use apple_metal::{CommandBuffer, MetalBuffer, MetalDevice};
 use core::ffi::c_void;
 use core::ptr;
@@ -422,6 +423,9 @@ impl NNGraph {
         command_buffer: &CommandBuffer,
         source_images: &[&Image],
     ) -> Option<Image> {
+        if source_images.len() != self.source_image_count() {
+            return None;
+        }
         let handles: Vec<_> = source_images.iter().map(|image| image.as_ptr()).collect();
         let source_handles = if handles.is_empty() {
             ptr::null()
@@ -522,8 +526,14 @@ impl CnnConvolutionDescriptor {
     }
 
     /// Wraps the corresponding `MPSCNNConvolutionDescriptor` setter.
-    pub fn set_groups(&self, value: usize) {
+    pub fn set_groups(&self, value: usize) -> Result<()> {
+        check_groups(
+            self.input_feature_channels(),
+            self.output_feature_channels(),
+            value,
+        )?;
         unsafe { ffi::mps_cnn_convolution_descriptor_set_groups(self.ptr, value) };
+        Ok(())
     }
 
     /// Wraps the corresponding `MPSCNNConvolutionDescriptor` method.
@@ -547,6 +557,133 @@ impl CnnConvolutionDescriptor {
     pub fn set_dilation_rate_y(&self, value: usize) {
         unsafe { ffi::mps_cnn_convolution_descriptor_set_dilation_rate_y(self.ptr, value) };
     }
+}
+
+struct ConvolutionGeometry {
+    output: usize,
+    weights: usize,
+}
+
+impl CnnConvolutionDescriptor {
+    fn validated_geometry(&self) -> Result<ConvolutionGeometry> {
+        let input = self.input_feature_channels();
+        let output = self.output_feature_channels();
+        let groups = self.groups();
+        if self.kernel_width() == 0 || self.kernel_height() == 0 {
+            return Err(Error::InvalidArgument(
+                "kernel width and height must be at least 1",
+            ));
+        }
+        if input == 0 || output == 0 {
+            return Err(Error::InvalidArgument(
+                "input and output feature channels must be at least 1",
+            ));
+        }
+        if self.stride_in_pixels_x() == 0 || self.stride_in_pixels_y() == 0 {
+            return Err(Error::InvalidArgument("strides must be at least 1"));
+        }
+        check_groups(input, output, groups)?;
+        let weights = output
+            .checked_mul(self.kernel_height())
+            .and_then(|count| count.checked_mul(self.kernel_width()))
+            .and_then(|count| count.checked_mul(input / groups))
+            .ok_or(Error::Overflow)?;
+        Ok(ConvolutionGeometry { output, weights })
+    }
+}
+
+fn check_groups(input: usize, output: usize, groups: usize) -> Result<()> {
+    if groups == 0 {
+        return Err(Error::InvalidArgument("groups must be at least 1"));
+    }
+    if groups > input {
+        return Err(Error::InvalidArgument(
+            "groups exceeds the input feature channels",
+        ));
+    }
+    if input % groups != 0 || output % groups != 0 {
+        return Err(Error::InvalidArgument(
+            "input and output feature channels must be divisible by groups",
+        ));
+    }
+    if groups > 1 && ((input / groups) % 4 != 0 || (output / groups) % 4 != 0) {
+        return Err(Error::InvalidArgument(
+            "with several groups, each group needs a multiple of 4 input and output channels",
+        ));
+    }
+    Ok(())
+}
+
+fn ensure_floats(
+    field: &'static str,
+    buffer: &MetalBuffer,
+    offset: usize,
+    count: usize,
+) -> Result<()> {
+    let size = core::mem::size_of::<f32>();
+    if offset % size != 0 {
+        return Err(Error::Misaligned {
+            field,
+            value: offset,
+            alignment: size,
+        });
+    }
+    let required = count
+        .checked_mul(size)
+        .and_then(|bytes| bytes.checked_add(offset))
+        .ok_or(Error::Overflow)?;
+    let length = buffer.length();
+    if required > length {
+        return Err(Error::BufferTooSmall { required, length });
+    }
+    Ok(())
+}
+
+fn ensure_optimizer_vectors(vectors: &[Option<&Vector>]) -> Result<()> {
+    let vectors: Vec<&Vector> = vectors.iter().flatten().copied().collect();
+    let first = vectors[0];
+    for vector in &vectors {
+        if vector.data_type() != data_type::FLOAT32 {
+            return Err(Error::UnsupportedDataType(vector.data_type()));
+        }
+        for (field, expected, actual) in [
+            ("vector length", first.length(), vector.length()),
+            ("vector count", first.vectors(), vector.vectors()),
+        ] {
+            if expected != actual {
+                return Err(Error::DimensionMismatch {
+                    field,
+                    expected,
+                    actual,
+                });
+            }
+        }
+    }
+    Ok(())
+}
+
+fn ensure_optimizer_matrices(matrices: &[Option<&Matrix>]) -> Result<()> {
+    let matrices: Vec<&Matrix> = matrices.iter().flatten().copied().collect();
+    let first = matrices[0];
+    for matrix in &matrices {
+        if matrix.data_type() != data_type::FLOAT32 {
+            return Err(Error::UnsupportedDataType(matrix.data_type()));
+        }
+        for (field, expected, actual) in [
+            ("matrix rows", first.rows(), matrix.rows()),
+            ("matrix columns", first.columns(), matrix.columns()),
+            ("matrix count", first.matrices(), matrix.matrices()),
+        ] {
+            if expected != actual {
+                return Err(Error::DimensionMismatch {
+                    field,
+                    expected,
+                    actual,
+                });
+            }
+        }
+    }
+    Ok(())
 }
 
 opaque_handle!(RnnSingleGateDescriptor, "Wraps `MPSRNNSingleGateDescriptor`.");
@@ -635,33 +772,37 @@ impl RnnSingleGateDescriptor {
 opaque_handle!(CnnConvolution, "Wraps `MPSCNNConvolution`.");
 impl CnnConvolution {
     /// Wraps a constructor on `MPSCNNConvolution`.
-    #[must_use]
     pub fn new(
         device: &MetalDevice,
         descriptor: &CnnConvolutionDescriptor,
         kernel_weights: &[f32],
         bias_terms: Option<&[f32]>,
         flags: usize,
-    ) -> Option<Self> {
-        if kernel_weights.is_empty() {
-            return None;
+    ) -> Result<Self> {
+        if flags != cnn_convolution_flags::NONE {
+            return Err(Error::InvalidArgument(
+                "flags must be cnn_convolution_flags::NONE",
+            ));
         }
         // MPS reads `kernelWeights` according to the descriptor geometry; a slice
         // shorter than this would cause an out-of-bounds read in the driver.
         // Layout: outputFeatureChannels * kernelHeight * kernelWidth * (inputFeatureChannels / groups).
-        let groups = descriptor.groups().max(1);
-        let required_weights = descriptor
-            .output_feature_channels()
-            .checked_mul(descriptor.kernel_height())
-            .and_then(|v| v.checked_mul(descriptor.kernel_width()))
-            .and_then(|v| v.checked_mul(descriptor.input_feature_channels() / groups))?;
-        if kernel_weights.len() < required_weights {
-            return None;
+        let geometry = descriptor.validated_geometry()?;
+        if kernel_weights.len() < geometry.weights {
+            return Err(Error::DimensionMismatch {
+                field: "kernel_weights",
+                expected: geometry.weights,
+                actual: kernel_weights.len(),
+            });
         }
         // `biasTerms`, when supplied, must hold at least one value per output channel.
         if let Some(bias) = bias_terms {
-            if bias.len() < descriptor.output_feature_channels() {
-                return None;
+            if bias.len() < geometry.output {
+                return Err(Error::DimensionMismatch {
+                    field: "bias_terms",
+                    expected: geometry.output,
+                    actual: bias.len(),
+                });
             }
         }
         let bias_terms_ptr = bias_terms.map_or(ptr::null(), <[f32]>::as_ptr);
@@ -675,9 +816,9 @@ impl CnnConvolution {
             )
         };
         if ptr.is_null() {
-            None
+            Err(Error::Rejected("MPSCNNConvolution init"))
         } else {
-            Some(Self { ptr })
+            Ok(Self { ptr })
         }
     }
 
@@ -728,7 +869,27 @@ impl CnnConvolution {
         command_buffer: &CommandBuffer,
         source: &Image,
         destination: &Image,
-    ) {
+    ) -> Result<()> {
+        for (field, image, needed) in [
+            (
+                "source feature channels",
+                source,
+                self.input_feature_channels(),
+            ),
+            (
+                "destination feature channels",
+                destination,
+                self.output_feature_channels(),
+            ),
+        ] {
+            if image.feature_channels() < needed {
+                return Err(Error::DimensionMismatch {
+                    field,
+                    expected: needed,
+                    actual: image.feature_channels(),
+                });
+            }
+        }
         unsafe {
             ffi::mps_cnn_convolution_encode_image(
                 self.ptr,
@@ -737,6 +898,7 @@ impl CnnConvolution {
                 destination.as_ptr(),
             );
         };
+        Ok(())
     }
 }
 
@@ -757,14 +919,18 @@ impl CnnConvolutionWeightsAndBiasesState {
     }
 
     /// Wraps a constructor on `MPSCNNConvolutionWeightsAndBiasesState`.
-    #[must_use]
     pub fn new_with_offsets(
         weights: &MetalBuffer,
         weights_offset: usize,
         biases: Option<&MetalBuffer>,
         biases_offset: usize,
         descriptor: &CnnConvolutionDescriptor,
-    ) -> Option<Self> {
+    ) -> Result<Self> {
+        let geometry = descriptor.validated_geometry()?;
+        ensure_floats("weights_offset", weights, weights_offset, geometry.weights)?;
+        if let Some(biases) = biases {
+            ensure_floats("biases_offset", biases, biases_offset, geometry.output)?;
+        }
         let biases_ptr = biases.map_or(ptr::null_mut(), MetalBuffer::as_ptr);
         let ptr = unsafe {
             ffi::mps_cnn_convolution_weights_and_biases_state_new_with_offsets(
@@ -776,18 +942,20 @@ impl CnnConvolutionWeightsAndBiasesState {
             )
         };
         if ptr.is_null() {
-            None
+            Err(Error::Rejected(
+                "MPSCNNConvolutionWeightsAndBiasesState init",
+            ))
         } else {
-            Some(Self { ptr })
+            Ok(Self { ptr })
         }
     }
 
     /// Wraps a constructor on `MPSCNNConvolutionWeightsAndBiasesState`.
-    #[must_use]
     pub fn new_with_device(
         device: &MetalDevice,
         descriptor: &CnnConvolutionDescriptor,
-    ) -> Option<Self> {
+    ) -> Result<Self> {
+        descriptor.validated_geometry()?;
         let ptr = unsafe {
             ffi::mps_cnn_convolution_weights_and_biases_state_new_with_device(
                 device.as_ptr(),
@@ -795,9 +963,11 @@ impl CnnConvolutionWeightsAndBiasesState {
             )
         };
         if ptr.is_null() {
-            None
+            Err(Error::Rejected(
+                "MPSCNNConvolutionWeightsAndBiasesState init",
+            ))
         } else {
-            Some(Self { ptr })
+            Ok(Self { ptr })
         }
     }
 
@@ -1012,7 +1182,13 @@ impl NNOptimizerStochasticGradientDescent {
         input_values_vector: &Vector,
         input_momentum_vector: Option<&Vector>,
         result_values_vector: &Vector,
-    ) {
+    ) -> Result<()> {
+        ensure_optimizer_vectors(&[
+            Some(input_gradient_vector),
+            Some(input_values_vector),
+            input_momentum_vector,
+            Some(result_values_vector),
+        ])?;
         let input_momentum_ptr = input_momentum_vector.map_or(ptr::null_mut(), Vector::as_ptr);
         unsafe {
             ffi::mps_nn_optimizer_sgd_encode_vector(
@@ -1024,6 +1200,7 @@ impl NNOptimizerStochasticGradientDescent {
                 result_values_vector.as_ptr(),
             );
         };
+        Ok(())
     }
 
     /// Wraps the corresponding `MPSNNOptimizerStochasticGradientDescent` encode entry point.
@@ -1034,7 +1211,13 @@ impl NNOptimizerStochasticGradientDescent {
         input_values_matrix: &Matrix,
         input_momentum_matrix: Option<&Matrix>,
         result_values_matrix: &Matrix,
-    ) {
+    ) -> Result<()> {
+        ensure_optimizer_matrices(&[
+            Some(input_gradient_matrix),
+            Some(input_values_matrix),
+            input_momentum_matrix,
+            Some(result_values_matrix),
+        ])?;
         let input_momentum_ptr = input_momentum_matrix.map_or(ptr::null_mut(), Matrix::as_ptr);
         unsafe {
             ffi::mps_nn_optimizer_sgd_encode_matrix(
@@ -1046,6 +1229,7 @@ impl NNOptimizerStochasticGradientDescent {
                 result_values_matrix.as_ptr(),
             );
         };
+        Ok(())
     }
 }
 
@@ -1112,7 +1296,13 @@ impl NNOptimizerRmsProp {
         input_values_vector: &Vector,
         input_sum_of_squares_vector: &Vector,
         result_values_vector: &Vector,
-    ) {
+    ) -> Result<()> {
+        ensure_optimizer_vectors(&[
+            Some(input_gradient_vector),
+            Some(input_values_vector),
+            Some(input_sum_of_squares_vector),
+            Some(result_values_vector),
+        ])?;
         unsafe {
             ffi::mps_nn_optimizer_rmsprop_encode_vector(
                 self.ptr,
@@ -1123,6 +1313,7 @@ impl NNOptimizerRmsProp {
                 result_values_vector.as_ptr(),
             );
         };
+        Ok(())
     }
 
     /// Wraps the corresponding `MPSNNOptimizerRMSProp` encode entry point.
@@ -1133,7 +1324,13 @@ impl NNOptimizerRmsProp {
         input_values_matrix: &Matrix,
         input_sum_of_squares_matrix: &Matrix,
         result_values_matrix: &Matrix,
-    ) {
+    ) -> Result<()> {
+        ensure_optimizer_matrices(&[
+            Some(input_gradient_matrix),
+            Some(input_values_matrix),
+            Some(input_sum_of_squares_matrix),
+            Some(result_values_matrix),
+        ])?;
         unsafe {
             ffi::mps_nn_optimizer_rmsprop_encode_matrix(
                 self.ptr,
@@ -1144,6 +1341,7 @@ impl NNOptimizerRmsProp {
                 result_values_matrix.as_ptr(),
             );
         };
+        Ok(())
     }
 }
 
@@ -1232,7 +1430,14 @@ impl NNOptimizerAdam {
         input_momentum_vector: &Vector,
         input_velocity_vector: &Vector,
         result_values_vector: &Vector,
-    ) {
+    ) -> Result<()> {
+        ensure_optimizer_vectors(&[
+            Some(input_gradient_vector),
+            Some(input_values_vector),
+            Some(input_momentum_vector),
+            Some(input_velocity_vector),
+            Some(result_values_vector),
+        ])?;
         unsafe {
             ffi::mps_nn_optimizer_adam_encode_vector(
                 self.ptr,
@@ -1244,6 +1449,7 @@ impl NNOptimizerAdam {
                 result_values_vector.as_ptr(),
             );
         };
+        Ok(())
     }
 
     /// Wraps the corresponding `MPSNNOptimizerAdam` encode entry point.
@@ -1255,7 +1461,14 @@ impl NNOptimizerAdam {
         input_momentum_matrix: &Matrix,
         input_velocity_matrix: &Matrix,
         result_values_matrix: &Matrix,
-    ) {
+    ) -> Result<()> {
+        ensure_optimizer_matrices(&[
+            Some(input_gradient_matrix),
+            Some(input_values_matrix),
+            Some(input_momentum_matrix),
+            Some(input_velocity_matrix),
+            Some(result_values_matrix),
+        ])?;
         unsafe {
             ffi::mps_nn_optimizer_adam_encode_matrix(
                 self.ptr,
@@ -1267,6 +1480,7 @@ impl NNOptimizerAdam {
                 result_values_matrix.as_ptr(),
             );
         };
+        Ok(())
     }
 
     /// Wraps the corresponding `MPSNNOptimizerAdam` encode entry point.
@@ -1280,7 +1494,15 @@ impl NNOptimizerAdam {
         input_velocity_vector: &Vector,
         maximum_velocity_vector: Option<&Vector>,
         result_values_vector: &Vector,
-    ) {
+    ) -> Result<()> {
+        ensure_optimizer_vectors(&[
+            Some(input_gradient_vector),
+            Some(input_values_vector),
+            Some(input_momentum_vector),
+            Some(input_velocity_vector),
+            maximum_velocity_vector,
+            Some(result_values_vector),
+        ])?;
         let maximum_velocity_ptr = maximum_velocity_vector.map_or(ptr::null_mut(), Vector::as_ptr);
         unsafe {
             ffi::mps_nn_optimizer_adam_encode_amsgrad_vector(
@@ -1294,6 +1516,7 @@ impl NNOptimizerAdam {
                 result_values_vector.as_ptr(),
             );
         };
+        Ok(())
     }
 
     /// Wraps the corresponding `MPSNNOptimizerAdam` encode entry point.
@@ -1307,7 +1530,15 @@ impl NNOptimizerAdam {
         input_velocity_matrix: &Matrix,
         maximum_velocity_matrix: Option<&Matrix>,
         result_values_matrix: &Matrix,
-    ) {
+    ) -> Result<()> {
+        ensure_optimizer_matrices(&[
+            Some(input_gradient_matrix),
+            Some(input_values_matrix),
+            Some(input_momentum_matrix),
+            Some(input_velocity_matrix),
+            maximum_velocity_matrix,
+            Some(result_values_matrix),
+        ])?;
         let maximum_velocity_ptr = maximum_velocity_matrix.map_or(ptr::null_mut(), Matrix::as_ptr);
         unsafe {
             ffi::mps_nn_optimizer_adam_encode_amsgrad_matrix(
@@ -1321,6 +1552,7 @@ impl NNOptimizerAdam {
                 result_values_matrix.as_ptr(),
             );
         };
+        Ok(())
     }
 }
 

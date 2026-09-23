@@ -211,7 +211,8 @@ fn state_and_optimizer_smoke() {
         &values_vector,
         None,
         &sgd_result_vector,
-    );
+    )
+    .expect("encode");
     sgd_command_buffer.commit().expect("commit");
     sgd_command_buffer
         .wait_until_completed()
@@ -233,7 +234,8 @@ fn state_and_optimizer_smoke() {
         &values_matrix,
         None,
         &sgd_matrix_result,
-    );
+    )
+    .expect("encode");
     sgd_matrix_command_buffer.commit().expect("commit");
     sgd_matrix_command_buffer
         .wait_until_completed()
@@ -258,7 +260,8 @@ fn state_and_optimizer_smoke() {
         &values_vector,
         &sumsq_vector,
         &rms_result_vector,
-    );
+    )
+    .expect("encode");
     rms_command_buffer.commit().expect("commit");
     rms_command_buffer
         .wait_until_completed()
@@ -291,7 +294,8 @@ fn state_and_optimizer_smoke() {
         &momentum_vector,
         &velocity_vector,
         &adam_result_vector,
-    );
+    )
+    .expect("encode");
     adam_command_buffer.commit().expect("commit");
     adam_command_buffer
         .wait_until_completed()
@@ -361,7 +365,9 @@ fn convolution_and_rnn_smoke() {
         .expect("write source");
 
     let convolution_command_buffer = queue.new_command_buffer().expect("conv command buffer");
-    convolution.encode_image(&convolution_command_buffer, &source, &destination);
+    convolution
+        .encode_image(&convolution_command_buffer, &source, &destination)
+        .expect("encode");
     convolution_command_buffer.commit().expect("commit");
     convolution_command_buffer
         .wait_until_completed()

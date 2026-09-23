@@ -63,7 +63,7 @@ fn main() {
     let convolution = CnnConvolutionDescriptor::new(3, 3, 1, 4).expect("convolution descriptor");
     convolution.set_stride_in_pixels_x(2);
     convolution.set_stride_in_pixels_y(1);
-    convolution.set_groups(1);
+    convolution.set_groups(1).expect("groups");
     convolution.set_dilation_rate_x(1);
     convolution.set_dilation_rate_y(2);
     assert_eq!(convolution.kernel_width(), 3);

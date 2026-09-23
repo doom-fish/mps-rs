@@ -17,14 +17,32 @@ private func mps_nn_source_images(
     return images
 }
 
+final class MPSBridgeImageHandle: NSObject, MPSHandle {
+    static var supportsSecureCoding: Bool { true }
+
+    override init() {
+        super.init()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init()
+    }
+
+    func label() -> String? {
+        nil
+    }
+
+    func encode(with coder: NSCoder) {}
+}
+
 @_cdecl("mps_nn_image_node_new")
 public func mps_nn_image_node_new() -> UnsafeMutableRawPointer? {
-    mps_retain(MPSNNImageNode(handle: nil))
+    mps_retain(MPSNNImageNode(handle: MPSBridgeImageHandle()))
 }
 
 @_cdecl("mps_nn_image_node_exported")
 public func mps_nn_image_node_exported() -> UnsafeMutableRawPointer? {
-    mps_retain(MPSNNImageNode.exportedNode(with: nil))
+    mps_retain(MPSNNImageNode.exportedNode(with: MPSBridgeImageHandle()))
 }
 
 @_cdecl("mps_nn_image_node_format")
@@ -214,9 +232,13 @@ public func mps_nn_graph_encode(
     guard let graph: MPSNNGraph = mps_borrow(handle),
           let commandBuffer: MTLCommandBuffer = mps_borrow(commandBufferHandle),
           let sourceImageHandles,
-          let sourceImages = mps_nn_source_images(count: sourceImageCount, handles: sourceImageHandles)
+          let sourceImages = mps_nn_source_images(count: sourceImageCount, handles: sourceImageHandles),
+          sourceImages.count == graph.sourceImageHandles.count
     else {
         return nil
+    }
+    for image in sourceImages {
+        _ = image.texture
     }
 
     guard let result = graph.encode(to: commandBuffer, sourceImages: sourceImages) else {
@@ -454,6 +476,7 @@ public func mps_cnn_convolution_new(
     guard let device: MTLDevice = mps_borrow(deviceHandle),
           let descriptor: MPSCNNConvolutionDescriptor = mps_borrow(descriptorHandle),
           let kernelWeights,
+          flagsRaw == MPSCNNConvolutionFlags.none.rawValue,
           let flags = MPSCNNConvolutionFlags(rawValue: flagsRaw)
     else {
         return nil
@@ -524,10 +547,13 @@ public func mps_cnn_convolution_encode_image(
     guard let convolution: MPSCNNConvolution = mps_borrow(handle),
           let commandBuffer: MTLCommandBuffer = mps_borrow(commandBufferHandle),
           let sourceImage: MPSImage = mps_borrow(sourceImageHandle),
-          let destinationImage: MPSImage = mps_borrow(destinationImageHandle)
+          let destinationImage: MPSImage = mps_borrow(destinationImageHandle),
+          sourceImage.featureChannels >= convolution.inputFeatureChannels,
+          destinationImage.featureChannels >= convolution.outputFeatureChannels
     else {
         return
     }
+    _ = sourceImage.texture
     convolution.encode(commandBuffer: commandBuffer, sourceImage: sourceImage, destinationImage: destinationImage)
 }
 
@@ -1324,13 +1350,15 @@ public func mps_lstm_descriptor_set_memory_weights_are_diagonal(_ handle: Unsafe
 @_cdecl("mps_lstm_descriptor_cell_to_output_neuron_type")
 public func mps_lstm_descriptor_cell_to_output_neuron_type(_ handle: UnsafeMutableRawPointer?) -> UInt {
     guard let descriptor: MPSLSTMDescriptor = mps_borrow(handle) else { return 0 }
-    return UInt(descriptor.cellToOutputNeuronType.rawValue)
+    return UInt(exactly: descriptor.cellToOutputNeuronType.rawValue) ?? 0
 }
 
 @_cdecl("mps_lstm_descriptor_set_cell_to_output_neuron_type")
 public func mps_lstm_descriptor_set_cell_to_output_neuron_type(_ handle: UnsafeMutableRawPointer?, _ value: UInt) {
     guard let descriptor: MPSLSTMDescriptor = mps_borrow(handle),
-          let neuronType = MPSCNNNeuronType(rawValue: Int32(value))
+          let raw = Int32(exactly: value),
+          raw < MPSCNNNeuronType.count.rawValue,
+          let neuronType = MPSCNNNeuronType(rawValue: raw)
     else {
         return
     }
@@ -1509,6 +1537,9 @@ public func mps_rnn_image_inference_layer_encode_sequence(
           sourceImages.count == destinationImages.count
     else {
         return nil
+    }
+    for image in sourceImages {
+        _ = image.texture
     }
     let recurrentInputState: MPSRNNRecurrentImageState? = mps_borrow(recurrentInputStateHandle)
     let outputStates = NSMutableArray()

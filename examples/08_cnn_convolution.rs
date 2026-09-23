@@ -27,7 +27,9 @@ fn main() {
         .expect("write source");
 
     let command_buffer = queue.new_command_buffer().expect("command buffer");
-    convolution.encode_image(&command_buffer, &source, &destination);
+    convolution
+        .encode_image(&command_buffer, &source, &destination)
+        .expect("encode");
     command_buffer.commit().expect("commit");
     command_buffer
         .wait_until_completed()
