@@ -116,7 +116,16 @@ pub fn rect_no_clip() -> ImageRegion {
     let mut width = 0;
     let mut height = 0;
     let mut depth = 0;
-    unsafe { ffi::mps_rect_no_clip(&mut x, &mut y, &mut z, &mut width, &mut height, &mut depth) };
+    unsafe {
+        ffi::mps_rect_no_clip(
+            &raw mut x,
+            &raw mut y,
+            &raw mut z,
+            &raw mut width,
+            &raw mut height,
+            &raw mut depth,
+        );
+    };
     ImageRegion::new(x, y, z, width, height, depth)
 }
 

@@ -208,13 +208,13 @@ impl State {
             ffi::mps_state_texture_info(
                 self.ptr,
                 index,
-                &mut width,
-                &mut height,
-                &mut depth,
-                &mut array_length,
-                &mut pixel_format,
-                &mut texture_type,
-                &mut usage,
+                &raw mut width,
+                &raw mut height,
+                &raw mut depth,
+                &raw mut array_length,
+                &raw mut pixel_format,
+                &raw mut texture_type,
+                &raw mut usage,
             );
         };
         StateTextureInfo {
