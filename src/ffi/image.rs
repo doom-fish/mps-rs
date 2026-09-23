@@ -20,6 +20,7 @@ extern "C" {
     pub fn mps_image_feature_channels(handle: *mut c_void) -> usize;
     pub fn mps_image_number_of_images(handle: *mut c_void) -> usize;
     pub fn mps_image_pixel_size(handle: *mut c_void) -> usize;
+    pub fn mps_image_feature_channel_format(handle: *mut c_void) -> usize;
     pub fn mps_image_pixel_format(handle: *mut c_void) -> usize;
     pub fn mps_get_image_type(handle: *mut c_void) -> u32;
     pub fn mps_image_batch_increment_read_count(
@@ -36,6 +37,7 @@ extern "C" {
     pub fn mps_image_read_bytes(
         handle: *mut c_void,
         data: *mut c_void,
+        data_length: usize,
         data_layout: usize,
         bytes_per_row: usize,
         x: usize,
@@ -51,6 +53,7 @@ extern "C" {
     pub fn mps_image_write_bytes(
         handle: *mut c_void,
         data: *const c_void,
+        data_length: usize,
         data_layout: usize,
         bytes_per_row: usize,
         x: usize,

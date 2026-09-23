@@ -18,6 +18,16 @@ pub mod feature_channel_format {
     pub const FLOAT32: usize = 4;
 }
 
+#[must_use]
+pub const fn feature_channel_format_size(channel_format: usize) -> Option<usize> {
+    match channel_format {
+        feature_channel_format::UNORM8 => Some(1),
+        feature_channel_format::UNORM16 | feature_channel_format::FLOAT16 => Some(2),
+        feature_channel_format::FLOAT32 => Some(4),
+        _ => None,
+    }
+}
+
 /// `MPSDataLayout` constants.
 #[allow(non_upper_case_globals)]
 pub mod image_layout {
@@ -186,6 +196,9 @@ impl Image {
     /// Allocate a lazily backed `MPSImage` on `device`.
     #[must_use]
     pub fn new(device: &MetalDevice, descriptor: ImageDescriptor) -> Option<Self> {
+        if !descriptor_is_valid(device, &descriptor) {
+            return None;
+        }
         // SAFETY: All pointers originate from safe wrappers and the scalar arguments are POD.
         let ptr = unsafe {
             ffi::mps_image_new_with_descriptor(
@@ -266,6 +279,11 @@ impl Image {
         unsafe { ffi::mps_image_pixel_size(self.ptr) }
     }
 
+    #[must_use]
+    pub fn feature_channel_format(&self) -> usize {
+        unsafe { ffi::mps_image_feature_channel_format(self.ptr) }
+    }
+
     /// Underlying `MTLPixelFormat` raw value.
     #[must_use]
     pub fn pixel_format(&self) -> usize {
@@ -289,7 +307,14 @@ impl Image {
         params: ImageReadWriteParams,
         image_index: usize,
     ) -> Result<()> {
-        let expected = required_bytes(data_layout, bytes_per_row, region, params);
+        let expected = transfer_length(
+            self.shape()?,
+            data_layout,
+            bytes_per_row,
+            region,
+            params,
+            image_index,
+        )?;
         if dst.len() < expected {
             return Err(Error::InvalidLength {
                 expected,
@@ -298,10 +323,11 @@ impl Image {
         }
 
         // SAFETY: `dst` is valid for writes of at least `expected` bytes and all handles are valid.
-        let _ = unsafe {
+        let accepted = unsafe {
             ffi::mps_image_read_bytes(
                 self.ptr,
                 dst.as_mut_ptr().cast(),
+                dst.len(),
                 data_layout,
                 bytes_per_row,
                 region.x,
@@ -315,7 +341,11 @@ impl Image {
                 image_index,
             )
         };
-        Ok(())
+        if accepted {
+            Ok(())
+        } else {
+            Err(Error::Rejected("MPSImage byte transfer"))
+        }
     }
 
     /// Write bytes into the image from a caller-provided buffer.
@@ -328,7 +358,14 @@ impl Image {
         params: ImageReadWriteParams,
         image_index: usize,
     ) -> Result<()> {
-        let expected = required_bytes(data_layout, bytes_per_row, region, params);
+        let expected = transfer_length(
+            self.shape()?,
+            data_layout,
+            bytes_per_row,
+            region,
+            params,
+            image_index,
+        )?;
         if src.len() < expected {
             return Err(Error::InvalidLength {
                 expected,
@@ -337,10 +374,11 @@ impl Image {
         }
 
         // SAFETY: `src` is valid for reads of at least `expected` bytes and all handles are valid.
-        let _ = unsafe {
+        let accepted = unsafe {
             ffi::mps_image_write_bytes(
                 self.ptr,
                 src.as_ptr().cast(),
+                src.len(),
                 data_layout,
                 bytes_per_row,
                 region.x,
@@ -354,14 +392,17 @@ impl Image {
                 image_index,
             )
         };
-        Ok(())
+        if accepted {
+            Ok(())
+        } else {
+            Err(Error::Rejected("MPSImage byte transfer"))
+        }
     }
 
     /// Read the first image slice as tightly packed float32 HWC data.
     pub fn read_f32(&self) -> Result<Vec<f32>> {
-        let len = self.width() * self.height() * self.feature_channels();
+        let (len, bytes_per_row) = self.float32_layout()?;
         let mut data = vec![0.0_f32; len];
-        let bytes_per_row = self.width() * self.feature_channels() * core::mem::size_of::<f32>();
         // SAFETY: `data` is a contiguous `Vec<f32>` with exactly `len * size_of::<f32>()` bytes.
         let bytes = unsafe {
             core::slice::from_raw_parts_mut(
@@ -382,7 +423,7 @@ impl Image {
 
     /// Write tightly packed float32 HWC data into the first image slice.
     pub fn write_f32(&self, data: &[f32]) -> Result<()> {
-        let expected = self.width() * self.height() * self.feature_channels();
+        let (expected, bytes_per_row) = self.float32_layout()?;
         if data.len() != expected {
             return Err(Error::InvalidLength {
                 expected: expected * core::mem::size_of::<f32>(),
@@ -390,7 +431,6 @@ impl Image {
             });
         }
 
-        let bytes_per_row = self.width() * self.feature_channels() * core::mem::size_of::<f32>();
         // SAFETY: `data` is a contiguous slice of `f32`, which may be viewed as bytes.
         let bytes = unsafe {
             core::slice::from_raw_parts(data.as_ptr().cast::<u8>(), core::mem::size_of_val(data))
@@ -409,17 +449,153 @@ impl Image {
 #[doc(hidden)]
 pub use crate::generated::image::*;
 
-fn required_bytes(
+const MAX_TEXTURE_EXTENT: usize = 16_384;
+const MAX_TEXTURE_SLICES: usize = 2_048;
+const KNOWN_TEXTURE_USAGE: usize = texture_usage::SHADER_READ
+    | texture_usage::SHADER_WRITE
+    | texture_usage::RENDER_TARGET
+    | texture_usage::PIXEL_FORMAT_VIEW;
+
+fn descriptor_is_valid(device: &MetalDevice, descriptor: &ImageDescriptor) -> bool {
+    let slices = descriptor
+        .feature_channels
+        .div_ceil(4)
+        .checked_mul(descriptor.number_of_images);
+    let storage = match descriptor.storage_mode {
+        storage_mode::SHARED => device.has_unified_memory(),
+        storage_mode::MANAGED | storage_mode::PRIVATE => true,
+        _ => false,
+    };
+    feature_channel_format_size(descriptor.channel_format).is_some()
+        && (1..=MAX_TEXTURE_EXTENT).contains(&descriptor.width)
+        && (1..=MAX_TEXTURE_EXTENT).contains(&descriptor.height)
+        && descriptor.feature_channels > 0
+        && descriptor.number_of_images > 0
+        && slices.is_some_and(|slices| slices <= MAX_TEXTURE_SLICES)
+        && descriptor.usage & !KNOWN_TEXTURE_USAGE == 0
+        && storage
+}
+
+#[derive(Debug, Clone, Copy)]
+struct ImageShape {
+    width: usize,
+    height: usize,
+    feature_channels: usize,
+    number_of_images: usize,
+    element_size: usize,
+}
+
+impl Image {
+    fn shape(&self) -> Result<ImageShape> {
+        let element_size = feature_channel_format_size(self.feature_channel_format()).ok_or(
+            Error::Unsupported("image has no MPS feature channel format"),
+        )?;
+        Ok(ImageShape {
+            width: self.width(),
+            height: self.height(),
+            feature_channels: self.feature_channels(),
+            number_of_images: self.number_of_images(),
+            element_size,
+        })
+    }
+
+    fn float32_layout(&self) -> Result<(usize, usize)> {
+        if self.feature_channel_format() != feature_channel_format::FLOAT32 {
+            return Err(Error::Unsupported(
+                "read_f32 and write_f32 need a float32 image",
+            ));
+        }
+        let pixel_values = self.width().checked_mul(self.feature_channels());
+        let len = pixel_values.and_then(|values| values.checked_mul(self.height()));
+        let bytes_per_row =
+            pixel_values.and_then(|values| values.checked_mul(core::mem::size_of::<f32>()));
+        len.zip(bytes_per_row).ok_or(Error::Overflow)
+    }
+}
+
+fn transfer_length(
+    image: ImageShape,
     data_layout: usize,
     bytes_per_row: usize,
     region: ImageRegion,
     params: ImageReadWriteParams,
-) -> usize {
-    let rows = region.height.saturating_mul(region.depth);
-    let base = bytes_per_row.saturating_mul(rows);
-    if data_layout == image_layout::FEATURE_CHANNELSxHEIGHTxWIDTH {
-        base.saturating_mul(params.feature_channel_count.max(1))
-    } else {
-        base
+    image_index: usize,
+) -> Result<usize> {
+    let chunky = match data_layout {
+        image_layout::HEIGHTxWIDTHxFEATURE_CHANNELS => true,
+        image_layout::FEATURE_CHANNELSxHEIGHTxWIDTH => false,
+        _ => {
+            return Err(Error::InvalidArgument(
+                "data_layout is not an MPSDataLayout",
+            ))
+        }
+    };
+    if region.width == 0 || region.height == 0 {
+        return Err(Error::InvalidArgument("region must be at least 1x1 pixels"));
     }
+    if region.z != 0 || region.depth != 1 {
+        return Err(Error::InvalidArgument(
+            "region must cover one image (z = 0, depth = 1); pick it with image_index",
+        ));
+    }
+    let fits = |origin: usize, size: usize, limit: usize| {
+        origin.checked_add(size).is_some_and(|end| end <= limit)
+    };
+    if !fits(region.x, region.width, image.width) || !fits(region.y, region.height, image.height) {
+        return Err(Error::InvalidArgument("region exceeds the image"));
+    }
+    if image_index >= image.number_of_images {
+        return Err(Error::InvalidArgument(
+            "image_index exceeds the number of images",
+        ));
+    }
+    let offset = params.feature_channel_offset;
+    let count = params.feature_channel_count;
+    if count == 0 {
+        return Err(Error::InvalidArgument(
+            "feature_channel_count must be at least 1",
+        ));
+    }
+    if offset % 4 != 0 {
+        return Err(Error::Misaligned {
+            field: "feature_channel_offset",
+            value: offset,
+            alignment: 4,
+        });
+    }
+    let end = offset
+        .checked_add(count)
+        .filter(|end| *end <= image.feature_channels)
+        .ok_or(Error::InvalidArgument(
+            "feature channel window exceeds the image's feature channels",
+        ))?;
+    if count % 4 != 0 && end != image.feature_channels {
+        return Err(Error::InvalidArgument(
+            "feature_channel_count must be a multiple of 4 unless the window ends at the last channel",
+        ));
+    }
+    let row_bytes = region
+        .width
+        .checked_mul(if chunky { count } else { 1 })
+        .and_then(|elements| elements.checked_mul(image.element_size))
+        .ok_or(Error::Overflow)?;
+    if bytes_per_row < row_bytes {
+        return Err(Error::DimensionMismatch {
+            field: "bytes_per_row",
+            expected: row_bytes,
+            actual: bytes_per_row,
+        });
+    }
+    let plane = bytes_per_row
+        .checked_mul(region.height)
+        .ok_or(Error::Overflow)?;
+    let total = if chunky {
+        plane
+    } else {
+        plane.checked_mul(count).ok_or(Error::Overflow)?
+    };
+    if isize::try_from(total).is_err() {
+        return Err(Error::Overflow);
+    }
+    Ok(total)
 }
