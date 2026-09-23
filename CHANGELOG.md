@@ -1,5 +1,109 @@
 # Changelog
 
+All notable changes to `apple-mps` are documented here.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.3.0] - Unreleased
+
+### Security
+
+- `Image::read_bytes` and `write_bytes` checked the slice only against
+  `bytes_per_row * height * depth` and never required `bytes_per_row` to hold a
+  row, so a 4-byte slice with a 1-byte stride let MPS write (or read) a whole
+  4x4 float region past the slice, and the bridge's `Bool` was ignored.
+  Transfers are now checked against the image's feature-channel format, the
+  region, the image index and the MPS feature-channel window rules with checked
+  arithmetic, the bridge checks again, and a refusal is an error instead of
+  `Ok(())`.
+- `Matrix`, `Vector` and `NDArray::new_with_buffer` never compared the described
+  storage with `buffer.length()`, so a 4-byte buffer could back a 1024x1024
+  matrix and kernels read and wrote outside it on the GPU. They now check the
+  exact extent, that strides are element multiples large enough for a row, a
+  matrix or a vector, and for NDArrays the offset and MPS's 16-byte-padded row
+  layout.
+- Ray-tracing vertex, index, ray and intersection buffers, offsets, strides and
+  counts were unchecked, so builds read past the vertex buffer and intersections
+  were written past their buffer. They are now checked against the SDK struct
+  sizes and alignments, and intersections and refits need a current rebuild.
+- `ImageHistogram` encodes wrote past a short histogram buffer on the GPU
+  without an error; the buffer and its 32-byte aligned offset are now checked.
+
+### Fixed
+
+- MPS assertions and Swift traps that aborted the process from safe code:
+  convolution groups of 0, larger than the input channel count, not dividing
+  both channel counts or leaving fewer than a multiple of 4 channels per group
+  (MPS checks in `setGroups:` itself); zero kernel sizes, strides or channel
+  counts; M/N/K mismatches and unsupported data-type combinations in
+  `MatrixMultiplication::encode`; wrong source counts and interior, batch,
+  addend or destination shapes in `NDArrayMatrixMultiplication`; NDArray
+  descriptors with more than 16 dimensions or 2^31 elements, out-of-range
+  transposes, `NDArray::length_of_dimension` past the rank, and identity
+  reshapes that change the volume or miss the destination shape; image
+  descriptors with zero or oversized extents, more than 2048 slices, no channel
+  format, memoryless storage or unknown usage bits; texture-backed images whose
+  channel count doesn't fit the texture; reading an image that was never
+  written, or encoding a convolution on one; `NNGraph::encode` with too few
+  images; optimizer operands that differ in shape or are not float32; refitting
+  a structure built without `REFIT` usage; `MPSState` indices past
+  `resource_count`; predicates outside their buffer; histogram bin counts that
+  are not a power of two; and `Int`/`Int32` conversions of NDArray sizes and
+  LSTM neuron types.
+- The bridge's enum guards never rejected anything because Swift's imported
+  `init?(rawValue:)` accepts any raw value; the ray-tracing setters and image
+  channel formats now range-check their raw values.
+- Graph image nodes now carry an `MPSHandle`, so `NNGraph::source_image_count`
+  reports the images the graph needs instead of 0.
+- COVERAGE.md and COVERAGE_AUDIT*.md claimed 479/479 symbols; 353 of them are
+  method-less opaque handles and 29 raw-value newtypes. They now report 97
+  verified symbols and list the rest as gaps. The README states the platform
+  requirements and shows versioned dependencies.
+
+### Changed
+
+- **BREAKING:** requires `apple-metal >=0.10, <0.11`, which declares `links` so a
+  build holds a single apple-metal release, and Rust 1.82 (was 1.76).
+- **BREAKING:** kernels, descriptors with setters, `NNImageNode`,
+  `MpsCommandBuffer`, `State` and `StateResourceList` are `Send` but no longer
+  `Sync`: MPS kernels may only be used by one thread at a time, and the setters
+  and encode methods take `&self`. `Matrix`, `Vector`, `NDArray`, `Image`,
+  `Predicate`, `PreferredDevice`, graph filter nodes, convolution weight states
+  and recurrent image states stay `Sync`.
+- **BREAKING:** these now return `Result`: `Matrix::new_with_buffer`,
+  `Vector::new_with_buffer`, `NDArray::new_with_buffer`,
+  `MatrixMultiplication::encode`,
+  `NDArrayMatrixMultiplication::encode_to_destination`,
+  `NDArrayDescriptor::set_number_of_dimensions`, `reshape_with_dimension_sizes`
+  and `transpose_dimension`, `CnnConvolutionDescriptor::set_groups`,
+  `CnnConvolution::new` and `encode_image`,
+  `CnnConvolutionWeightsAndBiasesState::new_with_offsets` and `new_with_device`,
+  the optimizer `encode_*` methods, `PolygonAccelerationStructure::rebuild` and
+  `encode_refit`, `RayIntersector::encode_intersection`, and
+  `ImageHistogram::encode_image` and `encode_texture`.
+- **BREAKING:** `PolygonAccelerationStructure::set_index_buffer` is `unsafe`:
+  MPS reads vertices through the indices, whose values the crate can't check.
+- **BREAKING:** `Error` is `#[non_exhaustive]` and gains `BufferTooSmall`,
+  `Misaligned`, `DimensionMismatch`, `InvalidArgument`, `UnsupportedDataType`,
+  `Overflow`, `Unsupported` and `Rejected`.
+- `NDArrayMatrixMultiplication::new` accepts 2 or 3 sources only, and the
+  `ffi` image-transfer and histogram functions changed signature.
+
+### Added
+
+- `MatrixDescriptor`, `VectorDescriptor` and `NDArrayDescriptor`
+  `required_buffer_length`, `MatrixMultiplication::descriptor`,
+  `NDArrayMatrixMultiplication::source_count`, `Image::feature_channel_format`
+  and `feature_channel_format_size`.
+- `data_type` constants for bfloat16, the complex types, 64-bit integers, bool
+  and the sub-byte types; `data_type_size` covers the byte-sized ones.
+
+## [0.2.6] - 2026-06-06
+
+- `CnnConvolution::new` checks the kernel-weight and bias slice lengths against
+  the descriptor; removed the unused Swift bridge C header.
+
 ## [0.2.5] - 2026-05-18
 
 - Added one-line rustdoc across the safe wrapper surface, with `///` notes that point back to the corresponding Metal Performance Shaders framework counterparts.
