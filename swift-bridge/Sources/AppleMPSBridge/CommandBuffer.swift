@@ -6,7 +6,11 @@ public func mps_predicate_new_with_buffer(
     _ bufferHandle: UnsafeMutableRawPointer?,
     _ offset: Int
 ) -> UnsafeMutableRawPointer? {
-    guard let buffer: MTLBuffer = mps_borrow(bufferHandle) else { return nil }
+    guard let buffer: MTLBuffer = mps_borrow(bufferHandle),
+          offset >= 0, offset % 4 == 0, offset <= buffer.length - 4
+    else {
+        return nil
+    }
     return mps_retain(MPSPredicate(buffer: buffer, offset: offset))
 }
 

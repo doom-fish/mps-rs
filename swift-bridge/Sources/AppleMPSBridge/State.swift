@@ -93,7 +93,9 @@ public func mps_state_is_temporary(_ handle: UnsafeMutableRawPointer?) -> Bool {
 
 @_cdecl("mps_state_buffer_size_at_index")
 public func mps_state_buffer_size_at_index(_ handle: UnsafeMutableRawPointer?, _ index: Int) -> Int {
-    guard let state: MPSState = mps_borrow(handle) else { return 0 }
+    guard let state: MPSState = mps_borrow(handle), index >= 0, index < state.resourceCount else {
+        return 0
+    }
     return state.bufferSize(at: index)
 }
 
@@ -109,7 +111,9 @@ public func mps_state_texture_info(
     _ textureType: UnsafeMutablePointer<UInt>?,
     _ usage: UnsafeMutablePointer<UInt>?
 ) {
-    guard let state: MPSState = mps_borrow(handle) else { return }
+    guard let state: MPSState = mps_borrow(handle), index >= 0, index < state.resourceCount else {
+        return
+    }
     let info = state.textureInfo(at: index)
     width?.pointee = info.width
     height?.pointee = info.height
@@ -122,7 +126,9 @@ public func mps_state_texture_info(
 
 @_cdecl("mps_state_resource_type_at_index")
 public func mps_state_resource_type_at_index(_ handle: UnsafeMutableRawPointer?, _ index: Int) -> UInt {
-    guard let state: MPSState = mps_borrow(handle) else { return 0 }
+    guard let state: MPSState = mps_borrow(handle), index >= 0, index < state.resourceCount else {
+        return 0
+    }
     return state.resourceType(at: index).rawValue
 }
 

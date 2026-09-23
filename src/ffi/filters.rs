@@ -103,14 +103,14 @@ extern "C" {
         source_handle: *mut c_void,
         histogram_buffer_handle: *mut c_void,
         histogram_offset: usize,
-    );
+    ) -> bool;
     pub fn mps_image_histogram_encode_texture(
         histogram_handle: *mut c_void,
         command_buffer_handle: *mut c_void,
         source_texture_handle: *mut c_void,
         histogram_buffer_handle: *mut c_void,
         histogram_offset: usize,
-    );
+    ) -> bool;
     pub fn mps_image_histogram_size_for_source_format(
         histogram_handle: *mut c_void,
         source_format: usize,

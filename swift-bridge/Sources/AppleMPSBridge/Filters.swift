@@ -289,7 +289,8 @@ public func mps_image_histogram_new(
 ) -> UnsafeMutableRawPointer? {
     guard let device: MTLDevice = mps_borrow(deviceHandle),
           let minValues,
-          let maxValues
+          let maxValues,
+          numberOfEntries > 0, numberOfEntries & (numberOfEntries - 1) == 0
     else {
         return nil
     }
@@ -311,13 +312,14 @@ public func mps_image_histogram_encode_image(
     _ sourceHandle: UnsafeMutableRawPointer?,
     _ histogramBufferHandle: UnsafeMutableRawPointer?,
     _ histogramOffset: Int
-) {
+) -> Bool {
     guard let histogram: MPSImageHistogram = mps_borrow(histogramHandle),
           let commandBuffer: MTLCommandBuffer = mps_borrow(commandBufferHandle),
           let source: MPSImage = mps_borrow(sourceHandle),
-          let histogramBuffer: MTLBuffer = mps_borrow(histogramBufferHandle)
+          let histogramBuffer: MTLBuffer = mps_borrow(histogramBufferHandle),
+          mps_histogram_fits(histogram, source.pixelFormat, histogramBuffer, histogramOffset)
     else {
-        return
+        return false
     }
 
     histogram.encode(
@@ -326,6 +328,17 @@ public func mps_image_histogram_encode_image(
         histogram: histogramBuffer,
         histogramOffset: histogramOffset
     )
+    return true
+}
+
+private func mps_histogram_fits(
+    _ histogram: MPSImageHistogram,
+    _ format: MTLPixelFormat,
+    _ buffer: MTLBuffer,
+    _ offset: Int
+) -> Bool {
+    let size = histogram.histogramSize(forSourceFormat: format)
+    return offset >= 0 && offset % 32 == 0 && offset <= buffer.length && buffer.length - offset >= size
 }
 
 @_cdecl("mps_image_histogram_encode_texture")
@@ -335,13 +348,14 @@ public func mps_image_histogram_encode_texture(
     _ sourceTextureHandle: UnsafeMutableRawPointer?,
     _ histogramBufferHandle: UnsafeMutableRawPointer?,
     _ histogramOffset: Int
-) {
+) -> Bool {
     guard let histogram: MPSImageHistogram = mps_borrow(histogramHandle),
           let commandBuffer: MTLCommandBuffer = mps_borrow(commandBufferHandle),
           let sourceTexture: MTLTexture = mps_borrow(sourceTextureHandle),
-          let histogramBuffer: MTLBuffer = mps_borrow(histogramBufferHandle)
+          let histogramBuffer: MTLBuffer = mps_borrow(histogramBufferHandle),
+          mps_histogram_fits(histogram, sourceTexture.pixelFormat, histogramBuffer, histogramOffset)
     else {
-        return
+        return false
     }
 
     histogram.encode(
@@ -350,6 +364,7 @@ public func mps_image_histogram_encode_texture(
         histogram: histogramBuffer,
         histogramOffset: histogramOffset
     )
+    return true
 }
 
 @_cdecl("mps_image_histogram_size_for_source_format")

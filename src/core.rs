@@ -95,6 +95,10 @@ impl Predicate {
     /// Wraps a constructor on `MPSPredicate`.
     #[must_use]
     pub fn new_with_buffer(buffer: &MetalBuffer, offset: usize) -> Option<Self> {
+        let predicate_size = core::mem::size_of::<u32>();
+        if offset % predicate_size != 0 || offset.checked_add(predicate_size)? > buffer.length() {
+            return None;
+        }
         // SAFETY: This function returns a +1 retained predicate or null.
         let ptr = unsafe { ffi::mps_predicate_new_with_buffer(buffer.as_ptr(), offset) };
         if ptr.is_null() {

@@ -1,3 +1,4 @@
+use crate::error::{Error, Result};
 use crate::ffi;
 use crate::image::{Image, ImageRegion};
 use apple_metal::{CommandBuffer, MetalBuffer, MetalDevice, MetalTexture};
@@ -420,6 +421,9 @@ impl ImageHistogram {
     /// Wraps a constructor on `MPSImageHistogram`.
     #[must_use]
     pub fn new(device: &MetalDevice, info: HistogramInfo) -> Option<Self> {
+        if !info.number_of_entries.is_power_of_two() {
+            return None;
+        }
         // SAFETY: `info` arrays live for the duration of the FFI call.
         let ptr = unsafe {
             ffi::mps_image_histogram_new(
@@ -444,17 +448,23 @@ impl ImageHistogram {
         source: &Image,
         histogram_buffer: &MetalBuffer,
         histogram_offset: usize,
-    ) {
+    ) -> Result<()> {
+        self.ensure_histogram_fits(source.pixel_format(), histogram_buffer, histogram_offset)?;
         // SAFETY: All handles come from safe wrappers and remain alive for the call.
-        unsafe {
+        let accepted = unsafe {
             ffi::mps_image_histogram_encode_image(
                 self.ptr,
                 command_buffer.as_ptr(),
                 source.as_ptr(),
                 histogram_buffer.as_ptr(),
                 histogram_offset,
-            );
+            )
         };
+        if accepted {
+            Ok(())
+        } else {
+            Err(Error::Rejected("MPSImageHistogram encode"))
+        }
     }
 
     /// Encode a histogram pass using a raw `MTLTexture` source.
@@ -464,17 +474,23 @@ impl ImageHistogram {
         source: &MetalTexture,
         histogram_buffer: &MetalBuffer,
         histogram_offset: usize,
-    ) {
+    ) -> Result<()> {
+        self.ensure_histogram_fits(source.pixel_format(), histogram_buffer, histogram_offset)?;
         // SAFETY: All handles come from safe wrappers and remain alive for the call.
-        unsafe {
+        let accepted = unsafe {
             ffi::mps_image_histogram_encode_texture(
                 self.ptr,
                 command_buffer.as_ptr(),
                 source.as_ptr(),
                 histogram_buffer.as_ptr(),
                 histogram_offset,
-            );
+            )
         };
+        if accepted {
+            Ok(())
+        } else {
+            Err(Error::Rejected("MPSImageHistogram encode"))
+        }
     }
 
     /// Report the minimum output buffer size for the given source pixel format.
@@ -483,7 +499,32 @@ impl ImageHistogram {
         // SAFETY: The histogram pointer is valid for the duration of the call.
         unsafe { ffi::mps_image_histogram_size_for_source_format(self.ptr, source_format) }
     }
+
+    fn ensure_histogram_fits(
+        &self,
+        source_format: usize,
+        buffer: &MetalBuffer,
+        offset: usize,
+    ) -> Result<()> {
+        if offset % HISTOGRAM_OFFSET_ALIGNMENT != 0 {
+            return Err(Error::Misaligned {
+                field: "histogram_offset",
+                value: offset,
+                alignment: HISTOGRAM_OFFSET_ALIGNMENT,
+            });
+        }
+        let required = offset
+            .checked_add(self.histogram_size_for_source_format(source_format))
+            .ok_or(Error::Overflow)?;
+        let length = buffer.length();
+        if required > length {
+            return Err(Error::BufferTooSmall { required, length });
+        }
+        Ok(())
+    }
 }
+
+const HISTOGRAM_OFFSET_ALIGNMENT: usize = 32;
 
 opaque_handle!(ImageStatisticsMinAndMax, "Wraps `MPSImageStatisticsMinAndMax`.");
 impl ImageStatisticsMinAndMax {
