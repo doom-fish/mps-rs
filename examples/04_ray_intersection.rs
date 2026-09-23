@@ -62,9 +62,8 @@ fn main() {
     acceleration_structure.set_vertex_stride(core::mem::size_of::<[f32; 4]>());
     acceleration_structure.set_index_type(data_type::UINT32);
     acceleration_structure.set_vertex_buffer(Some(&vertex_buffer));
-    acceleration_structure.set_index_buffer(None);
     acceleration_structure.set_polygon_count(1);
-    acceleration_structure.rebuild();
+    acceleration_structure.rebuild().expect("rebuild");
     assert_eq!(
         acceleration_structure.status(),
         acceleration_structure_status::BUILT,
@@ -113,16 +112,18 @@ fn main() {
     );
 
     let command_buffer = queue.new_command_buffer().expect("command buffer");
-    intersector.encode_intersection(
-        &command_buffer,
-        intersection_type::NEAREST,
-        &ray_buffer,
-        0,
-        &intersection_buffer,
-        0,
-        1,
-        &acceleration_structure,
-    );
+    intersector
+        .encode_intersection(
+            &command_buffer,
+            intersection_type::NEAREST,
+            &ray_buffer,
+            0,
+            &intersection_buffer,
+            0,
+            1,
+            &acceleration_structure,
+        )
+        .expect("encode intersection");
     command_buffer.commit().expect("commit");
     command_buffer
         .wait_until_completed()

@@ -1,5 +1,8 @@
+use crate::error::{Error, Result};
 use crate::ffi;
+use crate::matrix::data_type;
 use apple_metal::{CommandBuffer, MetalBuffer, MetalDevice};
+use core::cell::Cell;
 use core::ffi::c_void;
 use core::ptr;
 
@@ -103,10 +106,8 @@ macro_rules! opaque_handle {
             ptr: *mut c_void,
         }
 
-        // SAFETY: MPS handles are opaque pointers to thread-safe Swift/ObjC objects.
+        // SAFETY: MPS kernels may move between threads; only one thread may use one at a time.
         unsafe impl Send for $name {}
-        // SAFETY: MPS handles are opaque pointers to thread-safe Swift/ObjC objects.
-        unsafe impl Sync for $name {}
 
         impl Drop for $name {
             fn drop(&mut self) {
@@ -128,7 +129,33 @@ macro_rules! opaque_handle {
     };
 }
 
-opaque_handle!(PolygonAccelerationStructure, "Wraps `MPSPolygonAccelerationStructure`.");
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Geometry {
+    polygon_type: usize,
+    vertex_stride: usize,
+    index_type: Option<u32>,
+    polygon_count: usize,
+    usage: usize,
+}
+
+/// Wraps `MPSPolygonAccelerationStructure`.
+pub struct PolygonAccelerationStructure {
+    ptr: *mut c_void,
+    built: Cell<Option<Geometry>>,
+}
+
+unsafe impl Send for PolygonAccelerationStructure {}
+
+impl Drop for PolygonAccelerationStructure {
+    fn drop(&mut self) {
+        if !self.ptr.is_null() {
+            // SAFETY: `ptr` is a +1 retained MPS object owned by this wrapper.
+            unsafe { ffi::mps_object_release(self.ptr) };
+            self.ptr = ptr::null_mut();
+        }
+    }
+}
+
 impl PolygonAccelerationStructure {
     /// Wraps a constructor on `MPSPolygonAccelerationStructure`.
     #[must_use]
@@ -137,8 +164,17 @@ impl PolygonAccelerationStructure {
         if ptr.is_null() {
             None
         } else {
-            Some(Self { ptr })
+            Some(Self {
+                ptr,
+                built: Cell::new(None),
+            })
         }
+    }
+
+    /// Returns the retained Objective-C pointer backing this wrapper.
+    #[must_use]
+    pub const fn as_ptr(&self) -> *mut c_void {
+        self.ptr
     }
 
     /// Wraps the corresponding `MPSPolygonAccelerationStructure` method.
@@ -196,7 +232,8 @@ impl PolygonAccelerationStructure {
     }
 
     /// Wraps the corresponding `MPSPolygonAccelerationStructure` setter.
-    pub fn set_index_buffer(&self, buffer: Option<&MetalBuffer>) {
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn set_index_buffer(&self, buffer: Option<&MetalBuffer>) {
         let buffer_ptr = buffer.map_or(ptr::null_mut(), MetalBuffer::as_ptr);
         unsafe { ffi::mps_polygon_acceleration_structure_set_index_buffer(self.ptr, buffer_ptr) };
     }
@@ -243,16 +280,251 @@ impl PolygonAccelerationStructure {
     }
 
     /// Wraps the corresponding `MPSPolygonAccelerationStructure` method.
-    pub fn rebuild(&self) {
+    pub fn rebuild(&self) -> Result<()> {
+        let geometry = self.validated_geometry()?;
+        self.built.set(None);
         unsafe { ffi::mps_polygon_acceleration_structure_rebuild(self.ptr) };
+        if self.status() == acceleration_structure_status::BUILT {
+            self.built.set(Some(geometry));
+            Ok(())
+        } else {
+            Err(Error::Rejected("MPSAccelerationStructure rebuild"))
+        }
     }
 
     /// Wraps the corresponding `MPSPolygonAccelerationStructure` encode entry point.
-    pub fn encode_refit(&self, command_buffer: &CommandBuffer) {
+    pub fn encode_refit(&self, command_buffer: &CommandBuffer) -> Result<()> {
+        if self.ensure_built()?.usage & acceleration_structure_usage::REFIT == 0 {
+            return Err(Error::InvalidArgument(
+                "refitting needs a structure rebuilt with acceleration_structure_usage::REFIT",
+            ));
+        }
         unsafe {
             ffi::mps_polygon_acceleration_structure_encode_refit(self.ptr, command_buffer.as_ptr());
         };
+        Ok(())
     }
+
+    fn ensure_built(&self) -> Result<Geometry> {
+        let built = self
+            .built
+            .get()
+            .filter(|_| self.status() == acceleration_structure_status::BUILT)
+            .ok_or(Error::InvalidArgument(
+                "the acceleration structure must be rebuilt first",
+            ))?;
+        if self.validated_geometry()? == built {
+            Ok(built)
+        } else {
+            Err(Error::InvalidArgument(
+                "polygon type, count, stride, index type or usage changed since the last rebuild",
+            ))
+        }
+    }
+
+    fn validated_index_type(&self, corners: usize) -> Result<Option<u32>> {
+        let index_length = native_length(unsafe {
+            ffi::mps_polygon_acceleration_structure_index_buffer_length(self.ptr)
+        });
+        match index_length {
+            Some(index_length) => {
+                let index_type = self.index_type();
+                let index_size = match index_type {
+                    data_type::UINT16 => 2,
+                    data_type::UINT32 => 4,
+                    _ => {
+                        return Err(Error::InvalidArgument(
+                            "index_type must be UINT16 or UINT32",
+                        ))
+                    }
+                };
+                let index_offset = self.index_buffer_offset();
+                if index_offset % index_size != 0 {
+                    return Err(Error::Misaligned {
+                        field: "index_buffer_offset",
+                        value: index_offset,
+                        alignment: index_size,
+                    });
+                }
+                let required = corners
+                    .checked_mul(index_size)
+                    .and_then(|bytes| bytes.checked_add(index_offset))
+                    .ok_or(Error::Overflow)?;
+                if required > index_length {
+                    return Err(Error::BufferTooSmall {
+                        required,
+                        length: index_length,
+                    });
+                }
+                Ok(Some(index_type))
+            }
+            None => Ok(None),
+        }
+    }
+
+    fn validated_geometry(&self) -> Result<Geometry> {
+        let polygon_type = self.polygon_type();
+        let vertices_per_polygon = match polygon_type {
+            polygon_type::TRIANGLE => 3,
+            polygon_type::QUADRILATERAL => 4,
+            _ => {
+                return Err(Error::InvalidArgument(
+                    "polygon_type is not an MPSPolygonType",
+                ))
+            }
+        };
+        let vertex_stride = match self.vertex_stride() {
+            0 => DEFAULT_VERTEX_STRIDE,
+            stride => stride,
+        };
+        if vertex_stride % 4 != 0 {
+            return Err(Error::Misaligned {
+                field: "vertex_stride",
+                value: vertex_stride,
+                alignment: 4,
+            });
+        }
+        if vertex_stride < VERTEX_SIZE {
+            return Err(Error::DimensionMismatch {
+                field: "vertex_stride",
+                expected: VERTEX_SIZE,
+                actual: vertex_stride,
+            });
+        }
+        let vertex_offset = self.vertex_buffer_offset();
+        if vertex_offset % 4 != 0 {
+            return Err(Error::Misaligned {
+                field: "vertex_buffer_offset",
+                value: vertex_offset,
+                alignment: 4,
+            });
+        }
+        let vertex_length = native_length(unsafe {
+            ffi::mps_polygon_acceleration_structure_vertex_buffer_length(self.ptr)
+        })
+        .ok_or(Error::InvalidArgument("a vertex buffer is required"))?;
+        let polygon_count = self.polygon_count();
+        let corners = polygon_count
+            .checked_mul(vertices_per_polygon)
+            .ok_or(Error::Overflow)?;
+        let index_type = self.validated_index_type(corners)?;
+        let vertices = if index_type.is_some() {
+            usize::from(polygon_count > 0)
+        } else {
+            corners
+        };
+        if vertices > 0 {
+            let required = (vertices - 1)
+                .checked_mul(vertex_stride)
+                .and_then(|bytes| bytes.checked_add(VERTEX_SIZE))
+                .and_then(|bytes| bytes.checked_add(vertex_offset))
+                .ok_or(Error::Overflow)?;
+            if required > vertex_length {
+                return Err(Error::BufferTooSmall {
+                    required,
+                    length: vertex_length,
+                });
+            }
+        }
+        Ok(Geometry {
+            polygon_type,
+            vertex_stride,
+            index_type,
+            polygon_count,
+            usage: self.usage(),
+        })
+    }
+}
+
+const VERTEX_SIZE: usize = 12;
+const DEFAULT_VERTEX_STRIDE: usize = 16;
+
+fn native_length(length: isize) -> Option<usize> {
+    usize::try_from(length).ok()
+}
+
+const fn ray_layout(ray_data_type: usize) -> Option<(usize, usize)> {
+    match ray_data_type {
+        ray_data_type::ORIGIN_DIRECTION => Some((32, 16)),
+        ray_data_type::ORIGIN_MIN_DISTANCE_DIRECTION_MAX_DISTANCE
+        | ray_data_type::ORIGIN_MASK_DIRECTION_MAX_DISTANCE => Some((32, 4)),
+        ray_data_type::PACKED_ORIGIN_DIRECTION => Some((24, 4)),
+        _ => None,
+    }
+}
+
+const fn intersection_layout(intersection_data_type: usize) -> Option<(usize, usize)> {
+    match intersection_data_type {
+        intersection_data_type::DISTANCE => Some((4, 4)),
+        intersection_data_type::DISTANCE_PRIMITIVE_INDEX => Some((8, 4)),
+        intersection_data_type::DISTANCE_PRIMITIVE_INDEX_COORDINATES => Some((16, 8)),
+        intersection_data_type::DISTANCE_PRIMITIVE_INDEX_INSTANCE_INDEX
+        | intersection_data_type::DISTANCE_PRIMITIVE_INDEX_BUFFER_INDEX => Some((12, 4)),
+        intersection_data_type::DISTANCE_PRIMITIVE_INDEX_INSTANCE_INDEX_COORDINATES
+        | intersection_data_type::DISTANCE_PRIMITIVE_INDEX_BUFFER_INDEX_COORDINATES
+        | intersection_data_type::DISTANCE_PRIMITIVE_INDEX_BUFFER_INDEX_INSTANCE_INDEX_COORDINATES => {
+            Some((24, 8))
+        }
+        intersection_data_type::DISTANCE_PRIMITIVE_INDEX_BUFFER_INDEX_INSTANCE_INDEX => {
+            Some((16, 4))
+        }
+        _ => None,
+    }
+}
+
+fn effective_stride(
+    field: &'static str,
+    stride: usize,
+    (size, alignment): (usize, usize),
+) -> Result<usize> {
+    if stride == 0 {
+        return Ok(size);
+    }
+    if stride % alignment != 0 {
+        return Err(Error::Misaligned {
+            field,
+            value: stride,
+            alignment,
+        });
+    }
+    if stride < size {
+        return Err(Error::DimensionMismatch {
+            field,
+            expected: size,
+            actual: stride,
+        });
+    }
+    Ok(stride)
+}
+
+fn ensure_records(
+    field: &'static str,
+    buffer: &MetalBuffer,
+    offset: usize,
+    stride: usize,
+    size: usize,
+    count: usize,
+) -> Result<()> {
+    if offset % stride != 0 {
+        return Err(Error::Misaligned {
+            field,
+            value: offset,
+            alignment: stride,
+        });
+    }
+    let required = match count {
+        0 => offset,
+        count => (count - 1)
+            .checked_mul(stride)
+            .and_then(|bytes| bytes.checked_add(size))
+            .and_then(|bytes| bytes.checked_add(offset))
+            .ok_or(Error::Overflow)?,
+    };
+    let length = buffer.length();
+    if required > length {
+        return Err(Error::BufferTooSmall { required, length });
+    }
+    Ok(())
 }
 
 opaque_handle!(RayIntersector, "Wraps `MPSRayIntersector`.");
@@ -352,7 +624,37 @@ impl RayIntersector {
         intersection_buffer_offset: usize,
         ray_count: usize,
         acceleration_structure: &PolygonAccelerationStructure,
-    ) {
+    ) -> Result<()> {
+        if intersection_type > intersection_type::ANY {
+            return Err(Error::InvalidArgument(
+                "intersection_type is not an MPSIntersectionType",
+            ));
+        }
+        let ray = ray_layout(self.ray_data_type()).ok_or(Error::InvalidArgument(
+            "ray_data_type is not an MPSRayDataType",
+        ))?;
+        let hit = intersection_layout(self.intersection_data_type()).ok_or(
+            Error::InvalidArgument("intersection_data_type is not an MPSIntersectionDataType"),
+        )?;
+        let ray_stride = effective_stride("ray_stride", self.ray_stride(), ray)?;
+        let hit_stride = effective_stride("intersection_stride", self.intersection_stride(), hit)?;
+        ensure_records(
+            "ray_buffer_offset",
+            ray_buffer,
+            ray_buffer_offset,
+            ray_stride,
+            ray.0,
+            ray_count,
+        )?;
+        ensure_records(
+            "intersection_buffer_offset",
+            intersection_buffer,
+            intersection_buffer_offset,
+            hit_stride,
+            hit.0,
+            ray_count,
+        )?;
+        acceleration_structure.ensure_built()?;
         unsafe {
             ffi::mps_ray_intersector_encode_intersection(
                 self.ptr,
@@ -366,6 +668,7 @@ impl RayIntersector {
                 acceleration_structure.as_ptr(),
             );
         };
+        Ok(())
     }
 }
 

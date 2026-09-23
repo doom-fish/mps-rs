@@ -3,7 +3,7 @@ import MetalPerformanceShaders
 
 @inline(__always)
 private func mps_polygon_type(_ raw: UInt) -> MPSPolygonType? {
-    MPSPolygonType(rawValue: raw)
+    raw <= 1 ? MPSPolygonType(rawValue: raw) : nil
 }
 
 @inline(__always)
@@ -13,27 +13,27 @@ private func mps_acceleration_structure_usage(_ raw: UInt) -> MPSAccelerationStr
 
 @inline(__always)
 private func mps_cull_mode(_ raw: UInt) -> MTLCullMode? {
-    MTLCullMode(rawValue: raw)
+    raw <= 2 ? MTLCullMode(rawValue: raw) : nil
 }
 
 @inline(__always)
 private func mps_winding(_ raw: UInt) -> MTLWinding? {
-    MTLWinding(rawValue: raw)
+    raw <= 1 ? MTLWinding(rawValue: raw) : nil
 }
 
 @inline(__always)
 private func mps_ray_data_type(_ raw: UInt) -> MPSRayDataType? {
-    MPSRayDataType(rawValue: raw)
+    raw <= 3 ? MPSRayDataType(rawValue: raw) : nil
 }
 
 @inline(__always)
 private func mps_intersection_data_type(_ raw: UInt) -> MPSIntersectionDataType? {
-    MPSIntersectionDataType(rawValue: raw)
+    raw <= 8 ? MPSIntersectionDataType(rawValue: raw) : nil
 }
 
 @inline(__always)
 private func mps_intersection_type(_ raw: UInt) -> MPSIntersectionType? {
-    MPSIntersectionType(rawValue: raw)
+    raw <= 1 ? MPSIntersectionType(rawValue: raw) : nil
 }
 
 @_cdecl("mps_polygon_acceleration_structure_new")
@@ -96,11 +96,36 @@ public func mps_polygon_acceleration_structure_set_index_type(
     _ indexTypeRaw: UInt32
 ) {
     guard let accelerationStructure: MPSPolygonAccelerationStructure = mps_borrow(handle),
+          indexTypeRaw == MPSDataType.uInt16.rawValue || indexTypeRaw == MPSDataType.uInt32.rawValue,
           let indexType = mps_data_type(indexTypeRaw)
     else {
         return
     }
     accelerationStructure.indexType = indexType
+}
+
+@_cdecl("mps_polygon_acceleration_structure_vertex_buffer_length")
+public func mps_polygon_acceleration_structure_vertex_buffer_length(
+    _ handle: UnsafeMutableRawPointer?
+) -> Int {
+    guard let accelerationStructure: MPSPolygonAccelerationStructure = mps_borrow(handle),
+          let buffer = accelerationStructure.vertexBuffer
+    else {
+        return -1
+    }
+    return buffer.length
+}
+
+@_cdecl("mps_polygon_acceleration_structure_index_buffer_length")
+public func mps_polygon_acceleration_structure_index_buffer_length(
+    _ handle: UnsafeMutableRawPointer?
+) -> Int {
+    guard let accelerationStructure: MPSPolygonAccelerationStructure = mps_borrow(handle),
+          let buffer = accelerationStructure.indexBuffer
+    else {
+        return -1
+    }
+    return buffer.length
 }
 
 @_cdecl("mps_polygon_acceleration_structure_set_vertex_buffer")

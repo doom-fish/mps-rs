@@ -18,6 +18,8 @@ extern "C" {
         handle: *mut c_void,
         buffer_handle: *mut c_void,
     );
+    pub fn mps_polygon_acceleration_structure_vertex_buffer_length(handle: *mut c_void) -> isize;
+    pub fn mps_polygon_acceleration_structure_index_buffer_length(handle: *mut c_void) -> isize;
     pub fn mps_polygon_acceleration_structure_vertex_buffer_offset(handle: *mut c_void) -> usize;
     pub fn mps_polygon_acceleration_structure_set_vertex_buffer_offset(
         handle: *mut c_void,
