@@ -1,3 +1,4 @@
+use crate::error::{Error, Result};
 use crate::ffi;
 use apple_metal::{CommandBuffer, MetalBuffer, MetalDevice};
 use core::ffi::c_void;
@@ -25,15 +26,32 @@ pub mod data_type {
     pub const UINT32: u32 = 0x0000_0020;
     /// Wraps a `MPSDataType` raw value.
     pub const UNORM8: u32 = 0x4000_0008;
+    pub const BFLOAT16: u32 = 0x9000_0010;
+    pub const COMPLEX_FLOAT32: u32 = 0x1100_0040;
+    pub const COMPLEX_FLOAT16: u32 = 0x1100_0020;
+    pub const COMPLEX_BFLOAT16: u32 = 0x9100_0020;
+    pub const INT2: u32 = 0x2000_0002;
+    pub const INT4: u32 = 0x2000_0004;
+    pub const INT64: u32 = 0x2000_0040;
+    pub const UINT2: u32 = 0x0000_0002;
+    pub const UINT4: u32 = 0x0000_0004;
+    pub const UINT64: u32 = 0x0000_0040;
+    pub const BOOL: u32 = 0x8000_0008;
+    pub const UNORM1: u32 = 0x4000_0001;
 }
 
 /// Return the byte width of a supported `MPSDataType`.
 #[must_use]
 pub const fn data_type_size(data_type: u32) -> Option<usize> {
     match data_type {
-        data_type::FLOAT16 | data_type::INT16 | data_type::UINT16 => Some(2),
-        data_type::FLOAT32 | data_type::INT32 | data_type::UINT32 => Some(4),
-        data_type::INT8 | data_type::UINT8 | data_type::UNORM8 => Some(1),
+        data_type::FLOAT16 | data_type::INT16 | data_type::UINT16 | data_type::BFLOAT16 => Some(2),
+        data_type::FLOAT32
+        | data_type::INT32
+        | data_type::UINT32
+        | data_type::COMPLEX_FLOAT16
+        | data_type::COMPLEX_BFLOAT16 => Some(4),
+        data_type::INT8 | data_type::UINT8 | data_type::UNORM8 | data_type::BOOL => Some(1),
+        data_type::INT64 | data_type::UINT64 | data_type::COMPLEX_FLOAT32 => Some(8),
         _ => None,
     }
 }
@@ -98,6 +116,83 @@ impl MatrixDescriptor {
         // SAFETY: Pure function over scalar inputs.
         unsafe { ffi::mps_matrix_descriptor_row_bytes_for_columns(columns, data_type) }
     }
+
+    pub fn required_buffer_length(&self) -> Result<usize> {
+        let element_size =
+            data_type_size(self.data_type).ok_or(Error::UnsupportedDataType(self.data_type))?;
+        fit_native_int(&[
+            self.rows,
+            self.columns,
+            self.matrices,
+            self.row_bytes,
+            self.matrix_bytes,
+        ])?;
+        if self.row_bytes % element_size != 0 {
+            return Err(Error::Misaligned {
+                field: "row_bytes",
+                value: self.row_bytes,
+                alignment: element_size,
+            });
+        }
+        let row = self
+            .columns
+            .checked_mul(element_size)
+            .ok_or(Error::Overflow)?;
+        if self.row_bytes < row {
+            return Err(Error::DimensionMismatch {
+                field: "row_bytes",
+                expected: row,
+                actual: self.row_bytes,
+            });
+        }
+        if self.matrices > 1 {
+            let matrix = self
+                .rows
+                .checked_mul(self.row_bytes)
+                .ok_or(Error::Overflow)?;
+            if self.matrix_bytes < matrix {
+                return Err(Error::DimensionMismatch {
+                    field: "matrix_bytes",
+                    expected: matrix,
+                    actual: self.matrix_bytes,
+                });
+            }
+            if self.row_bytes > 0 && self.matrix_bytes % self.row_bytes != 0 {
+                return Err(Error::Misaligned {
+                    field: "matrix_bytes",
+                    value: self.matrix_bytes,
+                    alignment: self.row_bytes,
+                });
+            }
+        }
+        if self.rows == 0 || self.columns == 0 || self.matrices == 0 {
+            return Ok(0);
+        }
+        (self.matrices - 1)
+            .checked_mul(self.matrix_bytes)
+            .zip((self.rows - 1).checked_mul(self.row_bytes))
+            .and_then(|(matrices, rows)| matrices.checked_add(rows))
+            .and_then(|start| start.checked_add(row))
+            .filter(|length| isize::try_from(*length).is_ok())
+            .ok_or(Error::Overflow)
+    }
+}
+
+fn fit_native_int(values: &[usize]) -> Result<()> {
+    if values.iter().all(|value| isize::try_from(*value).is_ok()) {
+        Ok(())
+    } else {
+        Err(Error::Overflow)
+    }
+}
+
+fn ensure_buffer_holds(buffer: &MetalBuffer, required: usize) -> Result<()> {
+    let length = buffer.length();
+    if required > length {
+        Err(Error::BufferTooSmall { required, length })
+    } else {
+        Ok(())
+    }
 }
 
 /// Plain-Rust configuration for `MPSVectorDescriptor`.
@@ -144,6 +239,40 @@ impl VectorDescriptor {
         // SAFETY: Pure function over scalar inputs.
         unsafe { ffi::mps_vector_descriptor_vector_bytes_for_length(length, data_type) }
     }
+
+    pub fn required_buffer_length(&self) -> Result<usize> {
+        let element_size =
+            data_type_size(self.data_type).ok_or(Error::UnsupportedDataType(self.data_type))?;
+        fit_native_int(&[self.length, self.vectors, self.vector_bytes])?;
+        let vector = self
+            .length
+            .checked_mul(element_size)
+            .ok_or(Error::Overflow)?;
+        if self.vectors > 1 {
+            if self.vector_bytes % element_size != 0 {
+                return Err(Error::Misaligned {
+                    field: "vector_bytes",
+                    value: self.vector_bytes,
+                    alignment: element_size,
+                });
+            }
+            if self.vector_bytes < vector {
+                return Err(Error::DimensionMismatch {
+                    field: "vector_bytes",
+                    expected: vector,
+                    actual: self.vector_bytes,
+                });
+            }
+        }
+        if self.length == 0 || self.vectors == 0 {
+            return Ok(0);
+        }
+        (self.vectors - 1)
+            .checked_mul(self.vector_bytes)
+            .and_then(|start| start.checked_add(vector))
+            .filter(|length| isize::try_from(*length).is_ok())
+            .ok_or(Error::Overflow)
+    }
 }
 
 macro_rules! opaque_handle {
@@ -181,8 +310,8 @@ macro_rules! opaque_handle {
 opaque_handle!(Matrix, "Wraps `MPSMatrix`.");
 impl Matrix {
     /// Wrap an existing `MTLBuffer` as an `MPSMatrix`.
-    #[must_use]
-    pub fn new_with_buffer(buffer: &MetalBuffer, descriptor: MatrixDescriptor) -> Option<Self> {
+    pub fn new_with_buffer(buffer: &MetalBuffer, descriptor: MatrixDescriptor) -> Result<Self> {
+        ensure_buffer_holds(buffer, descriptor.required_buffer_length()?)?;
         // SAFETY: `buffer` is a valid `MTLBuffer` wrapper and scalar parameters are POD.
         let ptr = unsafe {
             ffi::mps_matrix_new_with_buffer(
@@ -196,9 +325,9 @@ impl Matrix {
             )
         };
         if ptr.is_null() {
-            None
+            Err(Error::Rejected("MPSMatrix initWithBuffer"))
         } else {
-            Some(Self { ptr })
+            Ok(Self { ptr })
         }
     }
 
@@ -251,8 +380,8 @@ pub use crate::generated::matrix::*;
 
 impl Vector {
     /// Wrap an existing `MTLBuffer` as an `MPSVector`.
-    #[must_use]
-    pub fn new_with_buffer(buffer: &MetalBuffer, descriptor: VectorDescriptor) -> Option<Self> {
+    pub fn new_with_buffer(buffer: &MetalBuffer, descriptor: VectorDescriptor) -> Result<Self> {
+        ensure_buffer_holds(buffer, descriptor.required_buffer_length()?)?;
         // SAFETY: `buffer` is a valid `MTLBuffer` wrapper and scalar parameters are POD.
         let ptr = unsafe {
             ffi::mps_vector_new_with_buffer(
@@ -264,9 +393,9 @@ impl Vector {
             )
         };
         if ptr.is_null() {
-            None
+            Err(Error::Rejected("MPSVector initWithBuffer"))
         } else {
-            Some(Self { ptr })
+            Ok(Self { ptr })
         }
     }
 
@@ -356,11 +485,34 @@ impl MatrixMultiplicationDescriptor {
     }
 }
 
-opaque_handle!(MatrixMultiplication, "Wraps `MPSMatrixMultiplication`.");
+/// Wraps `MPSMatrixMultiplication`.
+pub struct MatrixMultiplication {
+    ptr: *mut c_void,
+    descriptor: MatrixMultiplicationDescriptor,
+}
+
+unsafe impl Send for MatrixMultiplication {}
+
+impl Drop for MatrixMultiplication {
+    fn drop(&mut self) {
+        if !self.ptr.is_null() {
+            // SAFETY: `ptr` is a +1 retained Swift/ObjC object pointer owned by this wrapper.
+            unsafe { ffi::mps_object_release(self.ptr) };
+            self.ptr = ptr::null_mut();
+        }
+    }
+}
+
 impl MatrixMultiplication {
     /// Build a configurable GEMM kernel with optional transposition and scaling.
     #[must_use]
     pub fn new(device: &MetalDevice, descriptor: MatrixMultiplicationDescriptor) -> Option<Self> {
+        fit_native_int(&[
+            descriptor.result_rows,
+            descriptor.result_columns,
+            descriptor.interior_columns,
+        ])
+        .ok()?;
         // SAFETY: `device` exposes a valid `MTLDevice` pointer.
         let ptr = unsafe {
             ffi::mps_matrix_multiplication_new(
@@ -377,7 +529,7 @@ impl MatrixMultiplication {
         if ptr.is_null() {
             None
         } else {
-            Some(Self { ptr })
+            Some(Self { ptr, descriptor })
         }
     }
 
@@ -395,6 +547,17 @@ impl MatrixMultiplication {
         )
     }
 
+    /// Returns the retained Objective-C pointer backing this wrapper.
+    #[must_use]
+    pub const fn as_ptr(&self) -> *mut c_void {
+        self.ptr
+    }
+
+    #[must_use]
+    pub const fn descriptor(&self) -> MatrixMultiplicationDescriptor {
+        self.descriptor
+    }
+
     /// Encode the matrix multiplication onto a command buffer.
     pub fn encode(
         &self,
@@ -402,7 +565,32 @@ impl MatrixMultiplication {
         left: &Matrix,
         right: &Matrix,
         result: &Matrix,
-    ) {
+    ) -> Result<()> {
+        let descriptor = self.descriptor;
+        let (m, n, k) = (
+            descriptor.result_rows,
+            descriptor.result_columns,
+            descriptor.interior_columns,
+        );
+        let left_shape = if descriptor.transpose_left {
+            (k, m)
+        } else {
+            (m, k)
+        };
+        let right_shape = if descriptor.transpose_right {
+            (n, k)
+        } else {
+            (k, n)
+        };
+        ensure_covers(left, ("left rows", "left columns"), left_shape)?;
+        ensure_covers(right, ("right rows", "right columns"), right_shape)?;
+        ensure_covers(result, ("result rows", "result columns"), (m, n))?;
+        if !multiplication_types_supported(left.data_type(), right.data_type(), result.data_type())
+        {
+            return Err(Error::InvalidArgument(
+                "MPSMatrixMultiplication does not support this combination of data types",
+            ));
+        }
         // SAFETY: All handles come from safe wrappers and remain alive for the call.
         unsafe {
             ffi::mps_matrix_multiplication_encode(
@@ -413,5 +601,39 @@ impl MatrixMultiplication {
                 result.as_ptr(),
             );
         };
+        Ok(())
     }
+}
+
+fn ensure_covers(
+    matrix: &Matrix,
+    fields: (&'static str, &'static str),
+    (rows, columns): (usize, usize),
+) -> Result<()> {
+    if matrix.rows() < rows {
+        return Err(Error::DimensionMismatch {
+            field: fields.0,
+            expected: rows,
+            actual: matrix.rows(),
+        });
+    }
+    if matrix.columns() < columns {
+        return Err(Error::DimensionMismatch {
+            field: fields.1,
+            expected: columns,
+            actual: matrix.columns(),
+        });
+    }
+    Ok(())
+}
+
+const fn multiplication_types_supported(left: u32, right: u32, result: u32) -> bool {
+    use data_type::{FLOAT16, FLOAT32, INT16, INT8};
+    matches!(
+        (left, right, result),
+        (FLOAT32, FLOAT32 | FLOAT16, FLOAT32)
+            | (FLOAT16, FLOAT16, FLOAT16 | FLOAT32)
+            | (INT8, INT8, FLOAT16 | FLOAT32)
+            | (INT16, INT16, FLOAT32)
+    )
 }

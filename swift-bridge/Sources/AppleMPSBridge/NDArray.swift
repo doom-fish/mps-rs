@@ -6,8 +6,13 @@ private func mps_with_ndarray_dimension_sizes<T>(
     rawSizes: UnsafePointer<UInt>,
     _ body: (UnsafeMutablePointer<Int>) -> T
 ) -> T? {
-    guard count > 0 else { return nil }
-    var sizes = UnsafeBufferPointer(start: rawSizes, count: count).map { Int($0) }
+    guard count > 0, count <= 16 else { return nil }
+    var sizes = [Int]()
+    sizes.reserveCapacity(count)
+    for raw in UnsafeBufferPointer(start: rawSizes, count: count) {
+        guard let size = Int(exactly: raw) else { return nil }
+        sizes.append(size)
+    }
     return sizes.withUnsafeMutableBufferPointer { buffer in
         guard let baseAddress = buffer.baseAddress else { return nil }
         return body(baseAddress)
@@ -71,7 +76,11 @@ public func mps_ndarray_descriptor_set_number_of_dimensions(
     _ handle: UnsafeMutableRawPointer?,
     _ numberOfDimensions: Int
 ) {
-    guard let descriptor: MPSNDArrayDescriptor = mps_borrow(handle) else { return }
+    guard let descriptor: MPSNDArrayDescriptor = mps_borrow(handle),
+          numberOfDimensions >= 0, numberOfDimensions <= 16
+    else {
+        return
+    }
     descriptor.numberOfDimensions = numberOfDimensions
 }
 
@@ -91,7 +100,8 @@ public func mps_ndarray_descriptor_reshape_with_dimension_sizes(
     _ dimensionSizes: UnsafePointer<UInt>?
 ) {
     guard let descriptor: MPSNDArrayDescriptor = mps_borrow(handle),
-          let dimensionSizes
+          let dimensionSizes,
+          numberOfDimensions > 0, numberOfDimensions <= 16
     else {
         return
     }
@@ -114,7 +124,12 @@ public func mps_ndarray_descriptor_transpose_dimension(
     _ dimensionIndex: Int,
     _ otherDimensionIndex: Int
 ) {
-    guard let descriptor: MPSNDArrayDescriptor = mps_borrow(handle) else { return }
+    guard let descriptor: MPSNDArrayDescriptor = mps_borrow(handle),
+          dimensionIndex >= 0, dimensionIndex < descriptor.numberOfDimensions,
+          otherDimensionIndex >= 0, otherDimensionIndex < descriptor.numberOfDimensions
+    else {
+        return
+    }
     descriptor.transposeDimension(dimensionIndex, withDimension: otherDimensionIndex)
 }
 
@@ -147,14 +162,25 @@ public func mps_ndarray_new_with_buffer(
     _ descriptorHandle: UnsafeMutableRawPointer?
 ) -> UnsafeMutableRawPointer? {
     guard let buffer: MTLBuffer = mps_borrow(bufferHandle),
-          let descriptor: MPSNDArrayDescriptor = mps_borrow(descriptorHandle)
+          let descriptor: MPSNDArrayDescriptor = mps_borrow(descriptorHandle),
+          offset >= 0, offset <= buffer.length
     else {
         return nil
     }
     if #available(macOS 15.0, *) {
+        let required = MPSNDArray(device: buffer.device, descriptor: descriptor).resourceSize()
+        guard buffer.length - offset >= required else { return nil }
         return mps_retain(MPSNDArray(buffer: buffer, offset: offset, descriptor: descriptor))
     }
     return nil
+}
+
+@_cdecl("mps_ndarray_buffer_backing_available")
+public func mps_ndarray_buffer_backing_available() -> Bool {
+    if #available(macOS 15.0, *) {
+        return true
+    }
+    return false
 }
 
 @_cdecl("mps_ndarray_data_type")
@@ -175,6 +201,7 @@ public func mps_ndarray_length_of_dimension(
     _ dimensionIndex: Int
 ) -> Int {
     guard let array: MPSNDArray = mps_borrow(handle) else { return 0 }
+    guard dimensionIndex >= 0, dimensionIndex < array.numberOfDimensions else { return 1 }
     return array.length(ofDimension: dimensionIndex)
 }
 

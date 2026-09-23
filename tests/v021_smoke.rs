@@ -103,7 +103,9 @@ fn ndarray_matrix_multiplication_smoke() {
     assert!((kernel.beta() - 0.0).abs() < f64::EPSILON);
 
     let command_buffer = queue.new_command_buffer().expect("command buffer");
-    kernel.encode_to_destination(&command_buffer, &[&left, &right], &destination);
+    kernel
+        .encode_to_destination(&command_buffer, &[&left, &right], &destination)
+        .expect("encode ndarray matmul");
     command_buffer.commit().expect("commit");
     command_buffer
         .wait_until_completed()

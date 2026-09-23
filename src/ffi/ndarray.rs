@@ -38,6 +38,7 @@ extern "C" {
         offset: usize,
         descriptor_handle: *mut c_void,
     ) -> *mut c_void;
+    pub fn mps_ndarray_buffer_backing_available() -> bool;
     pub fn mps_ndarray_data_type(handle: *mut c_void) -> u32;
     pub fn mps_ndarray_number_of_dimensions(handle: *mut c_void) -> usize;
     pub fn mps_ndarray_length_of_dimension(handle: *mut c_void, dimension_index: usize) -> usize;

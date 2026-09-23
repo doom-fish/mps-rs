@@ -10,7 +10,9 @@ fn main() {
     assert_eq!(descriptor.number_of_dimensions(), 1);
     assert_eq!(descriptor.length_of_dimension(0), 4);
 
-    descriptor.reshape_with_dimension_sizes(&[2, 2]);
+    descriptor
+        .reshape_with_dimension_sizes(&[2, 2])
+        .expect("reshape descriptor");
     assert_eq!(descriptor.number_of_dimensions(), 2);
     assert_eq!(descriptor.length_of_dimension(0), 2);
     assert_eq!(descriptor.length_of_dimension(1), 2);

@@ -78,7 +78,8 @@ fn main() {
     let command_buffer = queue
         .new_command_buffer()
         .expect("failed to allocate command buffer");
-    gemm.encode(&command_buffer, &left, &right, &result);
+    gemm.encode(&command_buffer, &left, &right, &result)
+        .expect("encode matrix multiplication");
     command_buffer.commit().expect("commit");
     command_buffer
         .wait_until_completed()
