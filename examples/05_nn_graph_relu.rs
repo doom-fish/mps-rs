@@ -46,8 +46,10 @@ fn main() {
     let result = graph
         .encode(&command_buffer, &[&source])
         .expect("graph encode");
-    command_buffer.commit();
-    command_buffer.wait_until_completed();
+    command_buffer.commit().expect("commit");
+    command_buffer
+        .wait_until_completed()
+        .expect("command buffer completed");
 
     let output = result.read_f32().expect("read graph output");
     let expected = [0.0_f32, 0.5, 2.0, 0.0];

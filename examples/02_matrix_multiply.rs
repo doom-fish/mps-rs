@@ -9,12 +9,13 @@ fn as_bytes(values: &[f32]) -> &[u8] {
 }
 
 fn read_f32s(buffer: &MetalBuffer, len: usize) -> Vec<f32> {
-    let ptr = buffer
-        .contents()
-        .expect("buffer has CPU-visible storage")
-        .cast::<f32>();
-    // SAFETY: The buffer stays alive for the duration of the slice read and was allocated large enough.
-    unsafe { core::slice::from_raw_parts(ptr, len) }.to_vec()
+    let mut bytes = vec![0_u8; len * core::mem::size_of::<f32>()];
+    // SAFETY: The command buffer that wrote this buffer has completed, so no GPU access overlaps the read.
+    unsafe { buffer.read_bytes(0, &mut bytes) }.expect("buffer has CPU-visible storage");
+    bytes
+        .chunks_exact(core::mem::size_of::<f32>())
+        .map(|chunk| f32::from_ne_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
+        .collect()
 }
 
 fn main() {
@@ -53,9 +54,17 @@ fn main() {
     let right_values = [7.0_f32, 8.0, 9.0, 10.0, 11.0, 12.0];
     let zeros = [0.0_f32; 4];
 
-    let _ = left_buffer.write_bytes(as_bytes(&left_values));
-    let _ = right_buffer.write_bytes(as_bytes(&right_values));
-    let _ = result_buffer.write_bytes(as_bytes(&zeros));
+    unsafe {
+        left_buffer
+            .write_bytes(0, as_bytes(&left_values))
+            .expect("write left buffer");
+        right_buffer
+            .write_bytes(0, as_bytes(&right_values))
+            .expect("write right buffer");
+        result_buffer
+            .write_bytes(0, as_bytes(&zeros))
+            .expect("write result buffer");
+    }
 
     let left =
         Matrix::new_with_buffer(&left_buffer, left_desc).expect("failed to wrap left matrix");
@@ -70,8 +79,10 @@ fn main() {
         .new_command_buffer()
         .expect("failed to allocate command buffer");
     gemm.encode(&command_buffer, &left, &right, &result);
-    command_buffer.commit();
-    command_buffer.wait_until_completed();
+    command_buffer.commit().expect("commit");
+    command_buffer
+        .wait_until_completed()
+        .expect("command buffer completed");
 
     let output = read_f32s(&result_buffer, 4);
     let expected = [58.0_f32, 64.0, 139.0, 154.0];

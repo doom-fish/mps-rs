@@ -428,8 +428,10 @@ fn image_batch_helpers_smoke() {
     assert!(apple_mps::image::image_batch_resource_size(&[&image, &image]) > 0);
     let command_buffer = queue.new_command_buffer().expect("command buffer");
     apple_mps::image::image_batch_synchronize(&[&image, &image], &command_buffer);
-    command_buffer.commit();
-    command_buffer.wait_until_completed();
+    command_buffer.commit().expect("commit");
+    command_buffer
+        .wait_until_completed()
+        .expect("command buffer completed");
     let visit_count = apple_mps::image::image_batch_iterate(&[&image, &image], |_, index| {
         isize::try_from(index).expect("batch index fits in isize")
     });

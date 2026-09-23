@@ -18,13 +18,17 @@ fn buffer_with_f32_values_padded(
             resource_options::STORAGE_MODE_SHARED,
         )
         .expect("buffer");
-    let _ = buffer.write_bytes(as_bytes(values));
+    unsafe { buffer.write_bytes(0, as_bytes(values)) }.expect("write buffer");
     buffer
 }
 
 fn read_f32_values(buffer: &MetalBuffer, len: usize) -> Vec<f32> {
-    let ptr = buffer.contents().expect("buffer contents").cast::<f32>();
-    unsafe { core::slice::from_raw_parts(ptr, len).to_vec() }
+    let mut bytes = vec![0_u8; len * core::mem::size_of::<f32>()];
+    unsafe { buffer.read_bytes(0, &mut bytes) }.expect("read buffer");
+    bytes
+        .chunks_exact(core::mem::size_of::<f32>())
+        .map(|chunk| f32::from_ne_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
+        .collect()
 }
 
 fn main() {
@@ -54,8 +58,10 @@ fn main() {
 
     let command_buffer = queue.new_command_buffer().expect("command buffer");
     kernel.encode_to_destination(&command_buffer, &[&left, &right], &destination);
-    command_buffer.commit();
-    command_buffer.wait_until_completed();
+    command_buffer.commit().expect("commit");
+    command_buffer
+        .wait_until_completed()
+        .expect("command buffer completed");
 
     let padded_output = read_f32_values(&destination_buffer, row_stride_floats * rows);
     let output = [

@@ -30,8 +30,10 @@ fn main() {
             NDArray::new(&device, &destination_descriptor).expect("destination ndarray");
         let command_buffer = queue.new_command_buffer().expect("command buffer");
         assert!(identity.reshape_into(Some(&command_buffer), &array, &[4], &destination));
-        command_buffer.commit();
-        command_buffer.wait_until_completed();
+        command_buffer.commit().expect("commit");
+        command_buffer
+            .wait_until_completed()
+            .expect("command buffer completed");
         assert_eq!(destination.number_of_dimensions(), 1);
         assert_eq!(destination.length_of_dimension(0), 4);
         println!(

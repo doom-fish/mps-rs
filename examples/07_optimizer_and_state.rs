@@ -17,13 +17,17 @@ fn buffer_with_f32_values(device: &MetalDevice, values: &[f32]) -> MetalBuffer {
             resource_options::STORAGE_MODE_SHARED,
         )
         .expect("buffer");
-    let _ = buffer.write_bytes(as_bytes(values));
+    unsafe { buffer.write_bytes(0, as_bytes(values)) }.expect("write buffer");
     buffer
 }
 
 fn read_f32_values(buffer: &MetalBuffer, len: usize) -> Vec<f32> {
-    let ptr = buffer.contents().expect("buffer contents").cast::<f32>();
-    unsafe { core::slice::from_raw_parts(ptr, len).to_vec() }
+    let mut bytes = vec![0_u8; len * core::mem::size_of::<f32>()];
+    unsafe { buffer.read_bytes(0, &mut bytes) }.expect("read buffer");
+    bytes
+        .chunks_exact(core::mem::size_of::<f32>())
+        .map(|chunk| f32::from_ne_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
+        .collect()
 }
 
 fn vector_with_values(device: &MetalDevice, values: &[f32]) -> (MetalBuffer, Vector) {
@@ -50,8 +54,10 @@ fn main() {
         temporary_a.resource_type_at_index(0),
         state_resource_type::BUFFER
     );
-    command_buffer.commit();
-    command_buffer.wait_until_completed();
+    command_buffer.commit().expect("commit");
+    command_buffer
+        .wait_until_completed()
+        .expect("command buffer completed");
 
     let resource_list = StateResourceList::new().expect("resource list");
     resource_list.append_buffer(16);
@@ -75,8 +81,10 @@ fn main() {
         None,
         &result_vector,
     );
-    command_buffer.commit();
-    command_buffer.wait_until_completed();
+    command_buffer.commit().expect("commit");
+    command_buffer
+        .wait_until_completed()
+        .expect("command buffer completed");
 
     let _ = gradient_buffer;
     let _ = values_buffer;

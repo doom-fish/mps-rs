@@ -27,7 +27,7 @@ fn buffer_with_f32_values_padded(
             resource_options::STORAGE_MODE_SHARED,
         )
         .expect("buffer");
-    let _ = buffer.write_bytes(as_bytes(values));
+    unsafe { buffer.write_bytes(0, as_bytes(values)) }.expect("write buffer");
     buffer
 }
 
@@ -36,8 +36,12 @@ fn buffer_with_f32_values(device: &MetalDevice, values: &[f32]) -> MetalBuffer {
 }
 
 fn read_f32_values(buffer: &MetalBuffer, len: usize) -> Vec<f32> {
-    let ptr = buffer.contents().expect("buffer contents").cast::<f32>();
-    unsafe { core::slice::from_raw_parts(ptr, len).to_vec() }
+    let mut bytes = vec![0_u8; len * core::mem::size_of::<f32>()];
+    unsafe { buffer.read_bytes(0, &mut bytes) }.expect("read buffer");
+    bytes
+        .chunks_exact(core::mem::size_of::<f32>())
+        .map(|chunk| f32::from_ne_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
+        .collect()
 }
 
 fn vector_with_values(device: &MetalDevice, values: &[f32]) -> (MetalBuffer, Vector) {
@@ -100,8 +104,10 @@ fn ndarray_matrix_multiplication_smoke() {
 
     let command_buffer = queue.new_command_buffer().expect("command buffer");
     kernel.encode_to_destination(&command_buffer, &[&left, &right], &destination);
-    command_buffer.commit();
-    command_buffer.wait_until_completed();
+    command_buffer.commit().expect("commit");
+    command_buffer
+        .wait_until_completed()
+        .expect("command buffer completed");
 
     let padded_output = read_f32_values(&destination_buffer, row_stride_floats * rows);
     let output = vec![
@@ -136,8 +142,10 @@ fn state_and_optimizer_smoke() {
     assert_eq!(temporary_a.read_count(), 3);
     assert_eq!(temporary_b.read_count(), 3);
     let _ = state_batch_resource_size(&[&temporary_a, &temporary_b]);
-    command_buffer.commit();
-    command_buffer.wait_until_completed();
+    command_buffer.commit().expect("commit");
+    command_buffer
+        .wait_until_completed()
+        .expect("command buffer completed");
 
     let resource_list = StateResourceList::new().expect("resource list");
     resource_list.append_buffer(16);
@@ -154,8 +162,10 @@ fn state_and_optimizer_smoke() {
     let _ = persistent_state.resource_size();
     let sync_command_buffer = queue.new_command_buffer().expect("sync command buffer");
     state_batch_synchronize(&[&persistent_state], &sync_command_buffer);
-    sync_command_buffer.commit();
-    sync_command_buffer.wait_until_completed();
+    sync_command_buffer.commit().expect("commit");
+    sync_command_buffer
+        .wait_until_completed()
+        .expect("command buffer completed");
 
     let descriptor = NNOptimizerDescriptor::with_gradient_clipping(
         0.25,
@@ -200,8 +210,10 @@ fn state_and_optimizer_smoke() {
         None,
         &sgd_result_vector,
     );
-    sgd_command_buffer.commit();
-    sgd_command_buffer.wait_until_completed();
+    sgd_command_buffer.commit().expect("commit");
+    sgd_command_buffer
+        .wait_until_completed()
+        .expect("command buffer completed");
     let sgd_output = read_f32_values(&sgd_result_buffer, 2);
     approx_eq(&sgd_output, &[0.95, -0.9]);
 
@@ -220,8 +232,10 @@ fn state_and_optimizer_smoke() {
         None,
         &sgd_matrix_result,
     );
-    sgd_matrix_command_buffer.commit();
-    sgd_matrix_command_buffer.wait_until_completed();
+    sgd_matrix_command_buffer.commit().expect("commit");
+    sgd_matrix_command_buffer
+        .wait_until_completed()
+        .expect("command buffer completed");
     let sgd_matrix_output = read_f32_values(&sgd_matrix_result_buffer, 2);
     approx_eq(&sgd_matrix_output, &[0.95, -0.9]);
 
@@ -243,8 +257,10 @@ fn state_and_optimizer_smoke() {
         &sumsq_vector,
         &rms_result_vector,
     );
-    rms_command_buffer.commit();
-    rms_command_buffer.wait_until_completed();
+    rms_command_buffer.commit().expect("commit");
+    rms_command_buffer
+        .wait_until_completed()
+        .expect("command buffer completed");
     let rms_output = read_f32_values(&rms_result_buffer, 2);
     let rms_expected: Vec<f32> = source_values
         .iter()
@@ -274,8 +290,10 @@ fn state_and_optimizer_smoke() {
         &velocity_vector,
         &adam_result_vector,
     );
-    adam_command_buffer.commit();
-    adam_command_buffer.wait_until_completed();
+    adam_command_buffer.commit().expect("commit");
+    adam_command_buffer
+        .wait_until_completed()
+        .expect("command buffer completed");
     let adam_output = read_f32_values(&adam_result_buffer, 2);
     approx_eq(&adam_output, &[0.75, -0.75]);
 }
@@ -342,8 +360,10 @@ fn convolution_and_rnn_smoke() {
 
     let convolution_command_buffer = queue.new_command_buffer().expect("conv command buffer");
     convolution.encode_image(&convolution_command_buffer, &source, &destination);
-    convolution_command_buffer.commit();
-    convolution_command_buffer.wait_until_completed();
+    convolution_command_buffer.commit().expect("commit");
+    convolution_command_buffer
+        .wait_until_completed()
+        .expect("command buffer completed");
     let convolution_output = destination.read_f32().expect("conv output");
     approx_eq(&convolution_output, &[2.5, 4.5, 6.5, 8.5]);
 
@@ -391,8 +411,10 @@ fn convolution_and_rnn_smoke() {
     let recurrent_state = layer
         .encode_sequence(&rnn_command_buffer, &[&src0, &src1], &[&dst0, &dst1], None)
         .expect("recurrent state");
-    rnn_command_buffer.commit();
-    rnn_command_buffer.wait_until_completed();
+    rnn_command_buffer.commit().expect("commit");
+    rnn_command_buffer
+        .wait_until_completed()
+        .expect("command buffer completed");
 
     approx_eq(&dst0.read_f32().expect("dst0 output"), &[0.25]);
     approx_eq(&dst1.read_f32().expect("dst1 output"), &[0.75]);

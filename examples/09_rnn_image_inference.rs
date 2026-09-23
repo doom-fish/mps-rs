@@ -24,8 +24,10 @@ fn main() {
     let recurrent_state = layer
         .encode_sequence(&command_buffer, &[&src0, &src1], &[&dst0, &dst1], None)
         .expect("recurrent state");
-    command_buffer.commit();
-    command_buffer.wait_until_completed();
+    command_buffer.commit().expect("commit");
+    command_buffer
+        .wait_until_completed()
+        .expect("command buffer completed");
 
     let recurrent_output = recurrent_state
         .recurrent_output_image_for_layer_index(0)

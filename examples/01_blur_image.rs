@@ -22,8 +22,10 @@ fn main() {
         .new_command_buffer()
         .expect("failed to allocate command buffer");
     blur.encode_image(&command_buffer, &src, &dst);
-    command_buffer.commit();
-    command_buffer.wait_until_completed();
+    command_buffer.commit().expect("commit");
+    command_buffer
+        .wait_until_completed()
+        .expect("command buffer completed");
 
     let output = dst.read_f32().expect("failed to download blurred image");
     let center_value = output[center_index];

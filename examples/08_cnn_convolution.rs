@@ -28,8 +28,10 @@ fn main() {
 
     let command_buffer = queue.new_command_buffer().expect("command buffer");
     convolution.encode_image(&command_buffer, &source, &destination);
-    command_buffer.commit();
-    command_buffer.wait_until_completed();
+    command_buffer.commit().expect("commit");
+    command_buffer
+        .wait_until_completed()
+        .expect("command buffer completed");
 
     let output = destination.read_f32().expect("output");
     println!("{output:?}");

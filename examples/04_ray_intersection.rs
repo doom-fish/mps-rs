@@ -33,8 +33,9 @@ fn as_bytes<T>(values: &[T]) -> &[u8] {
 }
 
 fn read_struct<T: Copy>(buffer: &MetalBuffer) -> T {
-    let ptr = buffer.contents().expect("buffer contents").cast::<T>();
-    unsafe { *ptr }
+    let mut bytes = vec![0_u8; core::mem::size_of::<T>()];
+    unsafe { buffer.read_bytes(0, &mut bytes) }.expect("read buffer");
+    unsafe { bytes.as_ptr().cast::<T>().read_unaligned() }
 }
 
 #[allow(clippy::too_many_lines)]
@@ -53,7 +54,7 @@ fn main() {
             resource_options::STORAGE_MODE_SHARED,
         )
         .expect("vertex buffer");
-    let _ = vertex_buffer.write_bytes(as_bytes(&vertices));
+    unsafe { vertex_buffer.write_bytes(0, as_bytes(&vertices)) }.expect("write buffer");
 
     let acceleration_structure =
         PolygonAccelerationStructure::new(&device).expect("polygon acceleration structure");
@@ -99,8 +100,8 @@ fn main() {
             resource_options::STORAGE_MODE_SHARED,
         )
         .expect("intersection buffer");
-    let _ = ray_buffer.write_bytes(as_bytes(&[ray]));
-    let _ = intersection_buffer.write_bytes(as_bytes(&[miss]));
+    unsafe { ray_buffer.write_bytes(0, as_bytes(&[ray])) }.expect("write buffer");
+    unsafe { intersection_buffer.write_bytes(0, as_bytes(&[miss])) }.expect("write buffer");
 
     let intersector = RayIntersector::new(&device).expect("ray intersector");
     intersector.set_cull_mode(cull_mode::NONE);
@@ -122,8 +123,10 @@ fn main() {
         1,
         &acceleration_structure,
     );
-    command_buffer.commit();
-    command_buffer.wait_until_completed();
+    command_buffer.commit().expect("commit");
+    command_buffer
+        .wait_until_completed()
+        .expect("command buffer completed");
 
     let intersection = read_struct::<IntersectionDistancePrimitiveIndex>(&intersection_buffer);
     assert!(

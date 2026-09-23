@@ -9,7 +9,7 @@ description = "Safe Rust bindings for Apple's MetalPerformanceShaders framework 
 authors = ["Per Johansson <per@doom.fish>"]
 keywords = ["mps", "metal", "gpu", "macos", "apple"]
 categories = ["api-bindings", "os::macos-apis", "graphics"]
-rust-version = "1.76"
+rust-version = "1.82"
 readme = "README.md"
 build = "build.rs"
 include = [
@@ -37,7 +37,7 @@ name = "apple_mps"
 crate-type = ["lib"]
 
 [dependencies]
-apple-metal = { version = ">=0.5, <0.9" }
+apple-metal = { path = "../apple-metal-rs", version = ">=0.10, <0.11" }
 
 [package.metadata.docs.rs]
 default-target = "aarch64-apple-darwin"
