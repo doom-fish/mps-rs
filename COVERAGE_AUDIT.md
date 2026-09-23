@@ -2,14 +2,16 @@
 
 
 SDK_PUBLIC_SYMBOLS: 479
-VERIFIED: 479
-GAPS: 0
+VERIFIED: 97
+HANDLE_ONLY: 353
+RAW_VALUE_ONLY: 29
+GAPS: 382
 EXEMPT: 0
-COVERAGE_PCT: 100.00
+COVERAGE_PCT: 20.25
 
 Scope: `MetalPerformanceShaders.h` plus its transitive umbrella imports (`MPSCore`, `MPSImage`, `MPSMatrix`, `MPSNDArray`, `MPSNeuralNetwork`, `MPSRayIntersector`). `MPSFunctions` and `MPSBenchmarkLoop` are excluded because the umbrella header does not import them.
 
-Methodology: top-level Objective-C interfaces/protocols, enum/options/struct typedefs, C entry points, and `extern` constants were compared against the crate's public Rust API. The v0.2.2 sweep adds opaque retained-handle wrappers, raw-value mirrors, and direct bridge helpers so every public umbrella symbol now has an exposed Rust surface.
+What the numbers measure: the symbol list (top-level Objective-C interfaces and protocols, enum/options/struct typedefs, C entry points and `extern` constants) was taken from the macOS 26.2 SDK and has not been regenerated against the installed 26.5 or 27.0 SDKs. A symbol is VERIFIED only when a Rust wrapper with a constructor, methods, fields or named values exists. The 353 HANDLE ONLY rows are retained opaque handles in `src/generated` that expose `as_ptr` and `retained_from_raw` but no constructor, property or encode method, so the kernels behind them (for example Cholesky and LU decomposition, FindTopK, matrix softmax and most CNN and image filters) cannot be used from Rust. The 29 RAW VALUE ONLY rows are `#[repr(transparent)]` newtypes without named constants. Both groups are gaps, not coverage; earlier versions of this file counted them as VERIFIED.
 
 ## 🟢 VERIFIED
 | Symbol | Kind | Header | Wrapped by |
@@ -92,8 +94,32 @@ Methodology: top-level Objective-C interfaces/protocols, enum/options/struct typ
 | MPSSupportsMTLDevice | function | MetalPerformanceShaders/MetalPerformanceShaders.h | supports_mtl_device |
 | MPSVector | interface | MPSCore/MPSMatrix.h | Vector |
 | MPSVectorDescriptor | interface | MPSCore/MPSMatrix.h | VectorDescriptor |
-| MPSAliasingStrategy | options | MPSCore/MPSCoreTypes.h | core::AliasingStrategy |
-| MPSAlphaType | enum | MPSImage/MPSImageTypes.h | image::AlphaType |
+| MPSCustomKernelArgumentCount | struct | MPSCore/MPSKernelTypes.h | core::CustomKernelArgumentCount |
+| MPSDimensionSlice | struct | MPSCore/MPSCoreTypes.h | core::DimensionSlice |
+| MPSGetImageType | function | MPSCore/MPSKernelTypes.h | image::get_image_type |
+| MPSImageBatchIncrementReadCount | function | MPSCore/MPSImage.h | image::image_batch_increment_read_count |
+| MPSImageBatchIterate | function | MPSCore/MPSImage.h | image::image_batch_iterate |
+| MPSImageBatchResourceSize | function | MPSCore/MPSImage.h | image::image_batch_resource_size |
+| MPSImageBatchSynchronize | function | MPSCore/MPSImage.h | image::image_batch_synchronize |
+| MPSImageCoordinate | struct | MPSCore/MPSCoreTypes.h | image::ImageCoordinate |
+| MPSImageMedian | interface | MPSImage/MPSImageMedian.h | ImageMedian |
+| MPSImageRegion | struct | MPSCore/MPSCoreTypes.h | ImageRegion |
+| MPSOrigin | struct | MPSCore/MPSCoreTypes.h | core::Origin |
+| MPSRectNoClip | constant | MPSCore/MPSCoreTypes.h | core::rect_no_clip |
+| MPSRegion | struct | MPSCore/MPSCoreTypes.h | core::Region |
+| MPSSize | struct | MPSCore/MPSCoreTypes.h | core::Size |
+| MPSAccelerationStructureStatus | enum | MPSRayIntersector/MPSAccelerationStructure.h | acceleration_structure_status |
+| MPSAccelerationStructureUsage | options | MPSRayIntersector/MPSAccelerationStructure.h | acceleration_structure_usage |
+| MPSPolygonAccelerationStructure | interface | MPSRayIntersector/MPSPolygonAccelerationStructure.h | PolygonAccelerationStructure |
+| MPSPolygonType | enum | MPSRayIntersector/MPSPolygonAccelerationStructure.h | polygon_type |
+| MPSRayIntersector | interface | MPSRayIntersector/MPSRayIntersector.h | RayIntersector |
+
+## 🔴 GAPS
+
+### HANDLE ONLY
+
+| Symbol | Kind | Header | Wrapped by |
+| --- | --- | --- | --- |
 | MPSBinaryImageKernel | interface | MPSImage/MPSImageKernel.h | image::BinaryImageKernel |
 | MPSCNNAdd | interface | MPSNeuralNetwork/MPSCNNMath.h | neural::CnnAdd |
 | MPSCNNAddGradient | interface | MPSNeuralNetwork/MPSCNNMath.h | neural::CnnAddGradient |
@@ -102,23 +128,19 @@ Methodology: top-level Objective-C interfaces/protocols, enum/options/struct typ
 | MPSCNNArithmeticGradientState | interface | MPSNeuralNetwork/MPSCNNMath.h | neural::CnnArithmeticGradientState |
 | MPSCNNBatchNormalization | interface | MPSNeuralNetwork/MPSCNNBatchNormalization.h | neural::CnnBatchNormalization |
 | MPSCNNBatchNormalizationDataSource | protocol | MPSNeuralNetwork/MPSCNNBatchNormalization.h | neural::CnnBatchNormalizationDataSource |
-| MPSCNNBatchNormalizationFlags | options | MPSNeuralNetwork/MPSNeuralNetworkTypes.h | neural::CnnBatchNormalizationFlags |
 | MPSCNNBatchNormalizationGradient | interface | MPSNeuralNetwork/MPSCNNBatchNormalization.h | neural::CnnBatchNormalizationGradient |
 | MPSCNNBatchNormalizationGradientNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | neural::CnnBatchNormalizationGradientNode |
 | MPSCNNBatchNormalizationState | interface | MPSNeuralNetwork/MPSCNNBatchNormalization.h | neural::CnnBatchNormalizationState |
 | MPSCNNBatchNormalizationStatistics | interface | MPSNeuralNetwork/MPSCNNBatchNormalization.h | neural::CnnBatchNormalizationStatistics |
 | MPSCNNBatchNormalizationStatisticsGradient | interface | MPSNeuralNetwork/MPSCNNBatchNormalization.h | neural::CnnBatchNormalizationStatisticsGradient |
 | MPSCNNBinaryConvolution | interface | MPSNeuralNetwork/MPSCNNConvolution.h | neural::CnnBinaryConvolution |
-| MPSCNNBinaryConvolutionFlags | enum | MPSNeuralNetwork/MPSNeuralNetworkTypes.h | neural::CnnBinaryConvolutionFlags |
 | MPSCNNBinaryConvolutionNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | neural::CnnBinaryConvolutionNode |
-| MPSCNNBinaryConvolutionType | enum | MPSNeuralNetwork/MPSNeuralNetworkTypes.h | neural::CnnBinaryConvolutionType |
 | MPSCNNBinaryFullyConnected | interface | MPSNeuralNetwork/MPSCNNConvolution.h | neural::CnnBinaryFullyConnected |
 | MPSCNNBinaryFullyConnectedNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | neural::CnnBinaryFullyConnectedNode |
 | MPSCNNBinaryKernel | interface | MPSNeuralNetwork/MPSCNNKernel.h | neural::CnnBinaryKernel |
 | MPSCNNConvolutionDataSource | protocol | MPSNeuralNetwork/MPSCNNConvolution.h | neural::CnnConvolutionDataSource |
 | MPSCNNConvolutionGradient | interface | MPSNeuralNetwork/MPSCNNConvolution.h | neural::CnnConvolutionGradient |
 | MPSCNNConvolutionGradientNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | neural::CnnConvolutionGradientNode |
-| MPSCNNConvolutionGradientOption | options | MPSNeuralNetwork/MPSCNNConvolution.h | neural::CnnConvolutionGradientOption |
 | MPSCNNConvolutionGradientStateNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | neural::CnnConvolutionGradientStateNode |
 | MPSCNNConvolutionTranspose | interface | MPSNeuralNetwork/MPSCNNConvolution.h | neural::CnnConvolutionTranspose |
 | MPSCNNConvolutionTransposeGradient | interface | MPSNeuralNetwork/MPSCNNConvolution.h | neural::CnnConvolutionTransposeGradient |
@@ -170,7 +192,6 @@ Methodology: top-level Objective-C interfaces/protocols, enum/options/struct typ
 | MPSCNNLossDescriptor | interface | MPSNeuralNetwork/MPSCNNLoss.h | neural::CnnLossDescriptor |
 | MPSCNNLossLabels | interface | MPSNeuralNetwork/MPSCNNLoss.h | neural::CnnLossLabels |
 | MPSCNNLossNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | neural::CnnLossNode |
-| MPSCNNLossType | enum | MPSNeuralNetwork/MPSCNNTypes.h | neural::CnnLossType |
 | MPSCNNMultiaryKernel | interface | MPSNeuralNetwork/MPSCNNKernel.h | neural::CnnMultiaryKernel |
 | MPSCNNMultiply | interface | MPSNeuralNetwork/MPSCNNMath.h | neural::CnnMultiply |
 | MPSCNNMultiplyGradient | interface | MPSNeuralNetwork/MPSCNNMath.h | neural::CnnMultiplyGradient |
@@ -206,7 +227,6 @@ Methodology: top-level Objective-C interfaces/protocols, enum/options/struct typ
 | MPSCNNNeuronSoftSignNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | neural::CnnNeuronSoftSignNode |
 | MPSCNNNeuronTanH | interface | MPSNeuralNetwork/MPSCNNNeuron.h | neural::CnnNeuronTanH |
 | MPSCNNNeuronTanHNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | neural::CnnNeuronTanHNode |
-| MPSCNNNeuronType | enum | MPSNeuralNetwork/MPSCNNNeuronType.h | neural::CnnNeuronType |
 | MPSCNNNormalizationGammaAndBetaState | interface | MPSNeuralNetwork/MPSCNNNormalizationWeights.h | neural::CnnNormalizationGammaAndBetaState |
 | MPSCNNNormalizationMeanAndVarianceState | interface | MPSNeuralNetwork/MPSCNNBatchNormalization.h | neural::CnnNormalizationMeanAndVarianceState |
 | MPSCNNNormalizationNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | neural::CnnNormalizationNode |
@@ -225,7 +245,6 @@ Methodology: top-level Objective-C interfaces/protocols, enum/options/struct typ
 | MPSCNNPoolingMaxGradient | interface | MPSNeuralNetwork/MPSCNNPooling.h | neural::CnnPoolingMaxGradient |
 | MPSCNNPoolingMaxGradientNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | neural::CnnPoolingMaxGradientNode |
 | MPSCNNPoolingNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | neural::CnnPoolingNode |
-| MPSCNNReductionType | enum | MPSNeuralNetwork/MPSCNNTypes.h | neural::CnnReductionType |
 | MPSCNNSoftMax | interface | MPSNeuralNetwork/MPSCNNSoftMax.h | neural::CnnSoftMax |
 | MPSCNNSoftMaxGradient | interface | MPSNeuralNetwork/MPSCNNSoftMax.h | neural::CnnSoftMaxGradient |
 | MPSCNNSoftMaxGradientNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | neural::CnnSoftMaxGradientNode |
@@ -245,31 +264,18 @@ Methodology: top-level Objective-C interfaces/protocols, enum/options/struct typ
 | MPSCNNUpsamplingNearest | interface | MPSNeuralNetwork/MPSCNNUpsampling.h | neural::CnnUpsamplingNearest |
 | MPSCNNUpsamplingNearestGradient | interface | MPSNeuralNetwork/MPSCNNUpsampling.h | neural::CnnUpsamplingNearestGradient |
 | MPSCNNUpsamplingNearestGradientNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | neural::CnnUpsamplingNearestGradientNode |
-| MPSCNNWeightsQuantizationType | enum | MPSNeuralNetwork/MPSCNNConvolution.h | neural::CnnWeightsQuantizationType |
 | MPSCNNYOLOLoss | interface | MPSNeuralNetwork/MPSCNNLoss.h | neural::CnnYOLOLoss |
 | MPSCNNYOLOLossDescriptor | interface | MPSNeuralNetwork/MPSCNNLoss.h | neural::CnnYOLOLossDescriptor |
 | MPSCNNYOLOLossNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | neural::CnnYOLOLossNode |
-| MPSCustomKernelArgumentCount | struct | MPSCore/MPSKernelTypes.h | core::CustomKernelArgumentCount |
-| MPSCustomKernelIndex | enum | MPSCore/MPSKernelTypes.h | core::CustomKernelIndex |
-| MPSDeviceCapsValues | enum | MPSCore/MPSKernelTypes.h | core::DeviceCapsValues |
 | MPSDeviceProvider | protocol | MPSCore/MPSCoreTypes.h | core::DeviceProvider |
-| MPSDimensionSlice | struct | MPSCore/MPSCoreTypes.h | core::DimensionSlice |
-| MPSFloatDataTypeBit | enum | MPSCore/MPSCoreTypes.h | core::FloatDataTypeBit |
-| MPSFloatDataTypeShift | enum | MPSCore/MPSCoreTypes.h | core::FloatDataTypeShift |
-| MPSGetImageType | function | MPSCore/MPSKernelTypes.h | image::get_image_type |
 | MPSHandle | protocol | MPSNeuralNetwork/MPSNNGraphNodes.h | neural::Handle |
 | MPSHeapProvider | protocol | MPSCore/MPSCommandBuffer.h | core::HeapProvider |
 | MPSImageAllocator | protocol | MPSCore/MPSImage.h | image::ImageAllocator |
 | MPSImageAreaMax | interface | MPSImage/MPSImageMorphology.h | image::ImageAreaMax |
 | MPSImageAreaMin | interface | MPSImage/MPSImageMorphology.h | image::ImageAreaMin |
 | MPSImageArithmetic | interface | MPSImage/MPSImageMath.h | image::ImageArithmetic |
-| MPSImageBatchIncrementReadCount | function | MPSCore/MPSImage.h | image::image_batch_increment_read_count |
-| MPSImageBatchIterate | function | MPSCore/MPSImage.h | image::image_batch_iterate |
-| MPSImageBatchResourceSize | function | MPSCore/MPSImage.h | image::image_batch_resource_size |
-| MPSImageBatchSynchronize | function | MPSCore/MPSImage.h | image::image_batch_synchronize |
 | MPSImageCanny | interface | MPSImage/MPSImageConvolution.h | image::ImageCanny |
 | MPSImageConversion | interface | MPSImage/MPSImageConversion.h | image::ImageConversion |
-| MPSImageCoordinate | struct | MPSCore/MPSCoreTypes.h | image::ImageCoordinate |
 | MPSImageCopyToMatrix | interface | MPSImage/MPSImageCopy.h | image::ImageCopyToMatrix |
 | MPSImageDilate | interface | MPSImage/MPSImageMorphology.h | image::ImageDilate |
 | MPSImageDivide | interface | MPSImage/MPSImageMath.h | image::ImageDivide |
@@ -287,7 +293,6 @@ Methodology: top-level Objective-C interfaces/protocols, enum/options/struct typ
 | MPSImageLaplacianPyramid | interface | MPSImage/MPSImageConvolution.h | image::ImageLaplacianPyramid |
 | MPSImageLaplacianPyramidAdd | interface | MPSImage/MPSImageConvolution.h | image::ImageLaplacianPyramidAdd |
 | MPSImageLaplacianPyramidSubtract | interface | MPSImage/MPSImageConvolution.h | image::ImageLaplacianPyramidSubtract |
-| MPSImageMedian | interface | MPSImage/MPSImageMedian.h | ImageMedian |
 | MPSImageMultiply | interface | MPSImage/MPSImageMath.h | image::ImageMultiply |
 | MPSImageNormalizedHistogram | interface | MPSImage/MPSImageHistogram.h | image::ImageNormalizedHistogram |
 | MPSImagePyramid | interface | MPSImage/MPSImageConvolution.h | image::ImagePyramid |
@@ -296,7 +301,6 @@ Methodology: top-level Objective-C interfaces/protocols, enum/options/struct typ
 | MPSImageReduceColumnMin | interface | MPSImage/MPSImageReduce.h | image::ImageReduceColumnMin |
 | MPSImageReduceColumnSum | interface | MPSImage/MPSImageReduce.h | image::ImageReduceColumnSum |
 | MPSImageReduceUnary | interface | MPSImage/MPSImageReduce.h | image::ImageReduceUnary |
-| MPSImageRegion | struct | MPSCore/MPSCoreTypes.h | ImageRegion |
 | MPSImageScale | interface | MPSImage/MPSImageResampling.h | image::ImageScale |
 | MPSImageSizeEncodingState | protocol | MPSNeuralNetwork/MPSNeuralNetworkTypes.h | image::ImageSizeEncodingState |
 | MPSImageStatisticsMeanAndVariance | interface | MPSImage/MPSImageStatistics.h | image::ImageStatisticsMeanAndVariance |
@@ -308,7 +312,6 @@ Methodology: top-level Objective-C interfaces/protocols, enum/options/struct typ
 | MPSImageThresholdTruncate | interface | MPSImage/MPSImageThreshold.h | image::ImageThresholdTruncate |
 | MPSImageTransformProvider | protocol | MPSNeuralNetwork/MPSNNGraphNodes.h | image::ImageTransformProvider |
 | MPSImageTranspose | interface | MPSImage/MPSImageTranspose.h | image::ImageTranspose |
-| MPSImageType | enum | MPSCore/MPSKernelTypes.h | image::ImageType |
 | MPSKernel | interface | MPSCore/MPSKernel.h | core::Kernel |
 | MPSKeyedUnarchiver | interface | MPSCore/MPSKeyedUnarchiver.h | core::KeyedUnarchiver |
 | MPSMatrixBatchNormalization | interface | MPSNeuralNetwork/MPSMatrixBatchNormalization.h | matrix::MatrixBatchNormalization |
@@ -319,7 +322,6 @@ Methodology: top-level Objective-C interfaces/protocols, enum/options/struct typ
 | MPSMatrixCopyToImage | interface | MPSImage/MPSImageCopy.h | matrix::MatrixCopyToImage |
 | MPSMatrixDecompositionCholesky | interface | MPSMatrix/MPSMatrixDecomposition.h | matrix::MatrixDecompositionCholesky |
 | MPSMatrixDecompositionLU | interface | MPSMatrix/MPSMatrixDecomposition.h | matrix::MatrixDecompositionLU |
-| MPSMatrixDecompositionStatus | enum | MPSMatrix/MPSMatrixDecomposition.h | matrix::MatrixDecompositionStatus |
 | MPSMatrixFindTopK | interface | MPSMatrix/MPSMatrixFindTopK.h | matrix::MatrixFindTopK |
 | MPSMatrixFullyConnected | interface | MPSNeuralNetwork/MPSMatrixFullyConnected.h | matrix::MatrixFullyConnected |
 | MPSMatrixFullyConnectedGradient | interface | MPSNeuralNetwork/MPSMatrixFullyConnected.h | matrix::MatrixFullyConnectedGradient |
@@ -328,7 +330,6 @@ Methodology: top-level Objective-C interfaces/protocols, enum/options/struct typ
 | MPSMatrixNeuron | interface | MPSNeuralNetwork/MPSMatrixNeuron.h | matrix::MatrixNeuron |
 | MPSMatrixNeuronGradient | interface | MPSNeuralNetwork/MPSMatrixNeuron.h | matrix::MatrixNeuronGradient |
 | MPSMatrixRandom | interface | MPSMatrix/MPSMatrixRandom.h | matrix::MatrixRandom |
-| MPSMatrixRandomDistribution | options | MPSMatrix/MPSMatrixRandom.h | matrix::MatrixRandomDistribution |
 | MPSMatrixRandomDistributionDescriptor | interface | MPSMatrix/MPSMatrixRandom.h | matrix::MatrixRandomDistributionDescriptor |
 | MPSMatrixRandomMTGP32 | interface | MPSMatrix/MPSMatrixRandom.h | matrix::MatrixRandomMTGP32 |
 | MPSMatrixRandomPhilox | interface | MPSMatrix/MPSMatrixRandom.h | matrix::MatrixRandomPhilox |
@@ -356,7 +357,6 @@ Methodology: top-level Objective-C interfaces/protocols, enum/options/struct typ
 | MPSNDArrayMultiaryGradientKernel | interface | MPSNDArray/MPSNDArrayKernel.h | ndarray::NDArrayMultiaryGradientKernel |
 | MPSNDArrayMultiaryKernel | interface | MPSNDArray/MPSNDArrayKernel.h | ndarray::NDArrayMultiaryKernel |
 | MPSNDArrayQuantizationDescriptor | interface | MPSNDArray/MPSNDArrayQuantization.h | ndarray::NDArrayQuantizationDescriptor |
-| MPSNDArrayQuantizationScheme | options | MPSNDArray/MPSNDArrayQuantization.h | ndarray::NDArrayQuantizationScheme |
 | MPSNDArrayQuantizedMatrixMultiplication | interface | MPSNDArray/MPSNDArrayQuantizedMatrixMultiplication.h | ndarray::NDArrayQuantizedMatrixMultiplication |
 | MPSNDArrayStridedSlice | interface | MPSNDArray/MPSNDArrayStridedSlice.h | ndarray::NDArrayStridedSlice |
 | MPSNDArrayStridedSliceGradient | interface | MPSNDArray/MPSNDArrayStridedSlice.h | ndarray::NDArrayStridedSliceGradient |
@@ -373,7 +373,6 @@ Methodology: top-level Objective-C interfaces/protocols, enum/options/struct typ
 | MPSNNBinaryGradientStateNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | neural::NNBinaryGradientStateNode |
 | MPSNNCompare | interface | MPSNeuralNetwork/MPSCNNMath.h | neural::NNCompare |
 | MPSNNComparisonNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | neural::NNComparisonNode |
-| MPSNNComparisonType | options | MPSNeuralNetwork/MPSCNNMath.h | neural::NNComparisonType |
 | MPSNNConcatenationGradientNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | neural::NNConcatenationGradientNode |
 | MPSNNConcatenationNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | neural::NNConcatenationNode |
 | MPSNNCropAndResizeBilinear | interface | MPSNeuralNetwork/MPSNNResize.h | neural::NNCropAndResizeBilinear |
@@ -409,7 +408,6 @@ Methodology: top-level Objective-C interfaces/protocols, enum/options/struct typ
 | MPSNNPadGradientNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | neural::NNPadGradientNode |
 | MPSNNPadNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | neural::NNPadNode |
 | MPSNNPadding | protocol | MPSNeuralNetwork/MPSNeuralNetworkTypes.h | neural::NNPadding |
-| MPSNNPaddingMethod | options | MPSNeuralNetwork/MPSNeuralNetworkTypes.h | neural::NNPaddingMethod |
 | MPSNNReduceBinary | interface | MPSNeuralNetwork/MPSNNReduce.h | neural::NNReduceBinary |
 | MPSNNReduceColumnMax | interface | MPSNeuralNetwork/MPSNNReduce.h | neural::NNReduceColumnMax |
 | MPSNNReduceColumnMean | interface | MPSNeuralNetwork/MPSNNReduce.h | neural::NNReduceColumnMean |
@@ -455,48 +453,60 @@ Methodology: top-level Objective-C interfaces/protocols, enum/options/struct typ
 | MPSNNSubtractionGradientNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | neural::NNSubtractionGradientNode |
 | MPSNNSubtractionNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | neural::NNSubtractionNode |
 | MPSNNTrainableNode | protocol | MPSNeuralNetwork/MPSNNGraphNodes.h | neural::NNTrainableNode |
-| MPSNNTrainingStyle | options | MPSNeuralNetwork/MPSNeuralNetworkTypes.h | neural::NNTrainingStyle |
 | MPSNNUnaryReductionNode | interface | MPSNeuralNetwork/MPSNNGraphNodes.h | neural::NNUnaryReductionNode |
-| MPSOrigin | struct | MPSCore/MPSCoreTypes.h | core::Origin |
-| MPSPurgeableState | enum | MPSCore/MPSImage.h | image::PurgeableState |
-| MPSRNNMatrixId | enum | MPSNeuralNetwork/MPSRNNLayer.h | neural::RnnMatrixId |
 | MPSRNNMatrixInferenceLayer | interface | MPSNeuralNetwork/MPSRNNLayer.h | neural::RnnMatrixInferenceLayer |
 | MPSRNNMatrixTrainingLayer | interface | MPSNeuralNetwork/MPSRNNLayer.h | neural::RnnMatrixTrainingLayer |
 | MPSRNNMatrixTrainingState | interface | MPSNeuralNetwork/MPSRNNLayer.h | neural::RnnMatrixTrainingState |
 | MPSRNNRecurrentMatrixState | interface | MPSNeuralNetwork/MPSRNNLayer.h | neural::RnnRecurrentMatrixState |
-| MPSRectNoClip | constant | MPSCore/MPSCoreTypes.h | core::rect_no_clip |
-| MPSRegion | struct | MPSCore/MPSCoreTypes.h | core::Region |
 | MPSSVGFDefaultTextureAllocator | interface | MPSRayIntersector/MPSSVGF.h | ray::SVGFDefaultTextureAllocator |
 | MPSSVGFDenoiser | interface | MPSRayIntersector/MPSSVGF.h | ray::SVGFDenoiser |
 | MPSSVGFTextureAllocator | protocol | MPSRayIntersector/MPSSVGF.h | ray::SVGFTextureAllocator |
-| MPSSize | struct | MPSCore/MPSCoreTypes.h | core::Size |
 | MPSTemporalAA | interface | MPSRayIntersector/MPSTemporalAA.h | ray::TemporalAA |
-| MPSTemporalWeighting | enum | MPSRayIntersector/MPSSVGF.h | ray::TemporalWeighting |
 | MPSTemporaryImage | interface | MPSCore/MPSImage.h | image::TemporaryImage |
 | MPSTemporaryMatrix | interface | MPSCore/MPSMatrix.h | matrix::TemporaryMatrix |
 | MPSTemporaryNDArray | interface | MPSCore/MPSNDArray.h | ndarray::TemporaryNDArray |
 | MPSTemporaryVector | interface | MPSCore/MPSMatrix.h | matrix::TemporaryVector |
-| MPSTransformType | enum | MPSRayIntersector/MPSInstanceAccelerationStructure.h | ray::TransformType |
 | MPSUnaryImageKernel | interface | MPSImage/MPSImageKernel.h | image::UnaryImageKernel |
 | MPSAccelerationStructure | interface | MPSRayIntersector/MPSAccelerationStructure.h | ray::AccelerationStructure |
 | MPSAccelerationStructureGroup | interface | MPSRayIntersector/MPSAccelerationStructureGroup.h | ray::AccelerationStructureGroup |
-| MPSAccelerationStructureStatus | enum | MPSRayIntersector/MPSAccelerationStructure.h | acceleration_structure_status |
-| MPSAccelerationStructureUsage | options | MPSRayIntersector/MPSAccelerationStructure.h | acceleration_structure_usage |
-| MPSBoundingBoxIntersectionTestType | enum | MPSRayIntersector/MPSRayIntersector.h | ray::BoundingBoxIntersectionTestType |
 | MPSInstanceAccelerationStructure | interface | MPSRayIntersector/MPSInstanceAccelerationStructure.h | ray::InstanceAccelerationStructure |
-| MPSPolygonAccelerationStructure | interface | MPSRayIntersector/MPSPolygonAccelerationStructure.h | PolygonAccelerationStructure |
 | MPSPolygonBuffer | interface | MPSRayIntersector/MPSPolygonBuffer.h | ray::PolygonBuffer |
-| MPSPolygonType | enum | MPSRayIntersector/MPSPolygonAccelerationStructure.h | polygon_type |
 | MPSQuadrilateralAccelerationStructure | interface | MPSRayIntersector/MPSQuadrilateralAccelerationStructure.h | ray::QuadrilateralAccelerationStructure |
-| MPSRayIntersector | interface | MPSRayIntersector/MPSRayIntersector.h | RayIntersector |
+| MPSTriangleAccelerationStructure | interface | MPSRayIntersector/MPSTriangleAccelerationStructure.h | ray::TriangleAccelerationStructure |
+
+### RAW VALUE ONLY
+
+| Symbol | Kind | Header | Wrapped by |
+| --- | --- | --- | --- |
+| MPSAliasingStrategy | options | MPSCore/MPSCoreTypes.h | core::AliasingStrategy |
+| MPSAlphaType | enum | MPSImage/MPSImageTypes.h | image::AlphaType |
+| MPSCNNBatchNormalizationFlags | options | MPSNeuralNetwork/MPSNeuralNetworkTypes.h | neural::CnnBatchNormalizationFlags |
+| MPSCNNBinaryConvolutionFlags | enum | MPSNeuralNetwork/MPSNeuralNetworkTypes.h | neural::CnnBinaryConvolutionFlags |
+| MPSCNNBinaryConvolutionType | enum | MPSNeuralNetwork/MPSNeuralNetworkTypes.h | neural::CnnBinaryConvolutionType |
+| MPSCNNConvolutionGradientOption | options | MPSNeuralNetwork/MPSCNNConvolution.h | neural::CnnConvolutionGradientOption |
+| MPSCNNLossType | enum | MPSNeuralNetwork/MPSCNNTypes.h | neural::CnnLossType |
+| MPSCNNNeuronType | enum | MPSNeuralNetwork/MPSCNNNeuronType.h | neural::CnnNeuronType |
+| MPSCNNReductionType | enum | MPSNeuralNetwork/MPSCNNTypes.h | neural::CnnReductionType |
+| MPSCNNWeightsQuantizationType | enum | MPSNeuralNetwork/MPSCNNConvolution.h | neural::CnnWeightsQuantizationType |
+| MPSCustomKernelIndex | enum | MPSCore/MPSKernelTypes.h | core::CustomKernelIndex |
+| MPSDeviceCapsValues | enum | MPSCore/MPSKernelTypes.h | core::DeviceCapsValues |
+| MPSFloatDataTypeBit | enum | MPSCore/MPSCoreTypes.h | core::FloatDataTypeBit |
+| MPSFloatDataTypeShift | enum | MPSCore/MPSCoreTypes.h | core::FloatDataTypeShift |
+| MPSImageType | enum | MPSCore/MPSKernelTypes.h | image::ImageType |
+| MPSMatrixDecompositionStatus | enum | MPSMatrix/MPSMatrixDecomposition.h | matrix::MatrixDecompositionStatus |
+| MPSMatrixRandomDistribution | options | MPSMatrix/MPSMatrixRandom.h | matrix::MatrixRandomDistribution |
+| MPSNDArrayQuantizationScheme | options | MPSNDArray/MPSNDArrayQuantization.h | ndarray::NDArrayQuantizationScheme |
+| MPSNNComparisonType | options | MPSNeuralNetwork/MPSCNNMath.h | neural::NNComparisonType |
+| MPSNNPaddingMethod | options | MPSNeuralNetwork/MPSNeuralNetworkTypes.h | neural::NNPaddingMethod |
+| MPSNNTrainingStyle | options | MPSNeuralNetwork/MPSNeuralNetworkTypes.h | neural::NNTrainingStyle |
+| MPSPurgeableState | enum | MPSCore/MPSImage.h | image::PurgeableState |
+| MPSRNNMatrixId | enum | MPSNeuralNetwork/MPSRNNLayer.h | neural::RnnMatrixId |
+| MPSTemporalWeighting | enum | MPSRayIntersector/MPSSVGF.h | ray::TemporalWeighting |
+| MPSTransformType | enum | MPSRayIntersector/MPSInstanceAccelerationStructure.h | ray::TransformType |
+| MPSBoundingBoxIntersectionTestType | enum | MPSRayIntersector/MPSRayIntersector.h | ray::BoundingBoxIntersectionTestType |
 | MPSRayMaskOperator | enum | MPSRayIntersector/MPSRayIntersector.h | ray::RayMaskOperator |
 | MPSRayMaskOptions | options | MPSRayIntersector/MPSRayIntersector.h | ray::RayMaskOptions |
-| MPSTriangleAccelerationStructure | interface | MPSRayIntersector/MPSTriangleAccelerationStructure.h | ray::TriangleAccelerationStructure |
 | MPSTriangleIntersectionTestType | enum | MPSRayIntersector/MPSRayIntersector.h | ray::TriangleIntersectionTestType |
-
-## 🔴 GAPS
-
-None.
 
 ## ⏭️ EXEMPT
 

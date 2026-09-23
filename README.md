@@ -9,9 +9,15 @@ The GitHub repository is `mps-rs`; the published crates.io package is
 
 ## Install
 
-```bash
-cargo add apple-mps apple-metal
+```toml
+[dependencies]
+apple-mps = "0.3"
+apple-metal = "0.10"
 ```
+
+Requires macOS 11 or later and Rust 1.82. Buffer-backed `NDArray`s and
+`NDArrayIdentity` need macOS 15 and report `Error::Unsupported` or `None` on
+older systems. The ray-tracing types wrap APIs Apple deprecated in macOS 14.
 
 ## Quick start
 
@@ -29,15 +35,16 @@ let command_buffer = queue.new_command_buffer().expect("command buffer");
 blur.encode_image(&command_buffer, &src, &dst);
 ```
 
-## v0.2.2 surface
+## Surface
 
-- Full Wave-C umbrella coverage: every remaining public `MetalPerformanceShaders` umbrella symbol is now exposed as an executable wrapper, raw-value mirror, or opaque retained handle.
+- Only part of the umbrella is usable: most kernel classes are opaque handles without
+  constructors or encode methods. [`COVERAGE.md`](COVERAGE.md) lists what is wrapped.
 - Core helpers:
   - `supports_mtl_device`, `preferred_device`, `hint_temporary_memory_high_water_mark`, `set_heap_cache_duration`
   - `Predicate` and `MpsCommandBuffer`
 - Images:
   - `ImageDescriptor` + `Image` for lazily allocated MPS images or texture-backed images
-  - Float32 image read/write helpers plus raw byte transfer with `MPSDataLayout`
+  - Float32 image read/write helpers plus raw byte transfers with `MPSDataLayout`, checked against the image's channel format, region and feature-channel window
   - Unary image filters:
     - `ImageGaussianBlur`
     - `ImageBox`
@@ -68,13 +75,28 @@ blur.encode_image(&command_buffer, &src, &dst);
   - `RnnDescriptor`, `RnnSingleGateDescriptor`, `GruDescriptor`, `LstmDescriptor`, `RnnImageInferenceLayer`, `RnnRecurrentImageState`
 - Shared constants for `MPSKernelOptions`, `MPSImageEdgeMode`, `MPSImageFeatureChannelFormat`, `MPSDataType`, `MPSDataLayout`, plus convolution / optimizer / RNN / state enums
 
-See [`COVERAGE.md`](COVERAGE.md) for the Wave-C audit and the implemented family matrix.
+See [`COVERAGE.md`](COVERAGE.md) for the family matrix and what the coverage audit measures.
+
+## Safety notes
+
+- Constructors and encode methods check buffer lengths, strides, offsets, shapes and data
+  types before calling MPS and return `Err` (or `None`) instead of letting MPS read or write
+  out of bounds or abort the process.
+- MPS kernels and descriptors are `Send` but not `Sync`: MPS allows a kernel to be used by
+  one thread at a time. Data objects such as `Matrix`, `Vector`, `NDArray` and `Image`
+  remain `Sync`.
+- `PolygonAccelerationStructure::set_index_buffer` is `unsafe`: every index read for the
+  configured polygons must be smaller than the number of vertices in the vertex buffer
+  whenever the structure is rebuilt, refit or used, because MPS reads vertices through
+  the indices without checking them.
+- As Apple documents, GPU writes to geometry, ray and image data must have completed
+  before `rebuild` or a CPU image transfer reads it.
 
 ## Validation
 
 ```bash
-cargo clippy --all-targets -- -D warnings
-cargo test
+cargo clippy --all-targets --all-features -- -D warnings
+cargo test --all-features
 cargo run --example 01_blur_image
 cargo run --example 02_matrix_multiply
 cargo run --example 03_ndarray_identity
