@@ -177,6 +177,23 @@ public func mps_image_pixel_format(_ handle: UnsafeMutableRawPointer?) -> UInt {
     return image.pixelFormat.rawValue
 }
 
+@_cdecl("mps_image_texture_info")
+public func mps_image_texture_info(
+    _ handle: UnsafeMutableRawPointer?,
+    _ texture: UnsafeMutablePointer<UnsafeMutableRawPointer?>?,
+    _ textureType: UnsafeMutablePointer<UInt>?,
+    _ arrayLength: UnsafeMutablePointer<Int>?,
+    _ usage: UnsafeMutablePointer<UInt>?
+) -> Bool {
+    guard let image: MPSImage = mps_borrow(handle) else { return false }
+    let backing = image.texture
+    texture?.pointee = Unmanaged.passUnretained(backing as AnyObject).toOpaque()
+    textureType?.pointee = backing.textureType.rawValue
+    arrayLength?.pointee = backing.arrayLength
+    usage?.pointee = backing.usage.rawValue
+    return true
+}
+
 @_cdecl("mps_get_image_type")
 public func mps_get_image_type(_ handle: UnsafeMutableRawPointer?) -> UInt32 {
     guard let image: MPSImage = mps_borrow(handle) else { return 0 }

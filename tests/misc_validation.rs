@@ -68,7 +68,9 @@ fn histograms_need_room_for_every_bin() {
             0,
         )
         .expect("write image");
-    let required = histogram.histogram_size_for_source_format(image.pixel_format());
+    let required = histogram
+        .histogram_size_for_source_format(image.pixel_format())
+        .expect("histogram size");
     assert_eq!(required, 3 * 256 * 4);
     let queue = device.new_command_queue().expect("queue");
     let command_buffer = queue.new_command_buffer().expect("command buffer");

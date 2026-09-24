@@ -12,6 +12,7 @@ pub mod core;
 pub mod error;
 #[doc(hidden)]
 pub mod ffi;
+mod filter_rules;
 /// Metal Performance Shaders image-filter wrappers.
 pub mod filters;
 mod generated;

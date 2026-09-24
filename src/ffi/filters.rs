@@ -6,13 +6,22 @@ extern "C" {
         command_buffer_handle: *mut c_void,
         source_handle: *mut c_void,
         destination_handle: *mut c_void,
-    );
+    ) -> bool;
     pub fn mps_unary_encode_texture(
         kernel_handle: *mut c_void,
         command_buffer_handle: *mut c_void,
         source_texture_handle: *mut c_void,
         destination_texture_handle: *mut c_void,
-    );
+    ) -> bool;
+    pub fn mps_unary_clip_rect(
+        kernel_handle: *mut c_void,
+        x: *mut usize,
+        y: *mut usize,
+        z: *mut usize,
+        width: *mut usize,
+        height: *mut usize,
+        depth: *mut usize,
+    ) -> bool;
     pub fn mps_unary_set_edge_mode(kernel_handle: *mut c_void, edge_mode: usize);
     pub fn mps_unary_set_clip_rect(
         kernel_handle: *mut c_void,
@@ -37,14 +46,14 @@ extern "C" {
         primary_handle: *mut c_void,
         secondary_handle: *mut c_void,
         destination_handle: *mut c_void,
-    );
+    ) -> bool;
     pub fn mps_binary_encode_texture(
         kernel_handle: *mut c_void,
         command_buffer_handle: *mut c_void,
         primary_texture_handle: *mut c_void,
         secondary_texture_handle: *mut c_void,
         destination_texture_handle: *mut c_void,
-    );
+    ) -> bool;
     pub fn mps_binary_set_primary_edge_mode(kernel_handle: *mut c_void, edge_mode: usize);
     pub fn mps_binary_set_secondary_edge_mode(kernel_handle: *mut c_void, edge_mode: usize);
     pub fn mps_binary_set_clip_rect(

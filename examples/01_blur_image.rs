@@ -21,7 +21,8 @@ fn main() {
     let command_buffer = queue
         .new_command_buffer()
         .expect("failed to allocate command buffer");
-    blur.encode_image(&command_buffer, &src, &dst);
+    blur.encode_image(&command_buffer, &src, &dst)
+        .expect("failed to encode gaussian blur");
     command_buffer.commit().expect("commit");
     command_buffer
         .wait_until_completed()

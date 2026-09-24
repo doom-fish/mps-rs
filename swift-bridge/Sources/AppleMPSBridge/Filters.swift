@@ -12,22 +12,70 @@ func mps_binary_kernel(_ handle: UnsafeMutableRawPointer?) -> MPSBinaryImageKern
     mps_borrow(handle)
 }
 
+private func mps_texture_root(_ texture: MTLTexture) -> AnyObject {
+    var root = texture
+    while let parent = root.parent {
+        root = parent
+    }
+    return root as AnyObject
+}
+
+private func mps_writable_on_device(_ texture: MTLTexture) -> Bool {
+    if texture.device.supportsFamily(.apple1) {
+        return true
+    }
+    switch texture.pixelFormat {
+    case .rgba8Unorm_srgb, .bgra8Unorm_srgb, .rg11b10Float, .rgb9e5Float:
+        return false
+    default:
+        return true
+    }
+}
+
+private func mps_kernel_accepts(
+    _ kernel: MPSKernel,
+    _ commandBuffer: MTLCommandBuffer,
+    _ textures: [MTLTexture]
+) -> Bool {
+    let device = kernel.device as AnyObject
+    return mps_is_recording(commandBuffer)
+        && commandBuffer.device as AnyObject === device
+        && textures.allSatisfy { $0.device as AnyObject === device }
+}
+
+private func mps_filter_accepts(
+    _ kernel: MPSKernel,
+    _ commandBuffer: MTLCommandBuffer,
+    _ sources: [MTLTexture],
+    _ destination: MTLTexture
+) -> Bool {
+    guard mps_kernel_accepts(kernel, commandBuffer, sources + [destination]),
+          mps_writable_on_device(destination)
+    else {
+        return false
+    }
+    let root = mps_texture_root(destination)
+    return sources.allSatisfy { mps_texture_root($0) !== root }
+}
+
 @_cdecl("mps_unary_encode_image")
 public func mps_unary_encode_image(
     _ kernelHandle: UnsafeMutableRawPointer?,
     _ commandBufferHandle: UnsafeMutableRawPointer?,
     _ sourceHandle: UnsafeMutableRawPointer?,
     _ destinationHandle: UnsafeMutableRawPointer?
-) {
+) -> Bool {
     guard let kernel = mps_unary_kernel(kernelHandle),
           let commandBuffer: MTLCommandBuffer = mps_borrow(commandBufferHandle),
           let source: MPSImage = mps_borrow(sourceHandle),
-          let destination: MPSImage = mps_borrow(destinationHandle)
+          let destination: MPSImage = mps_borrow(destinationHandle),
+          mps_filter_accepts(kernel, commandBuffer, [source.texture], destination.texture)
     else {
-        return
+        return false
     }
 
     kernel.encode(commandBuffer: commandBuffer, sourceImage: source, destinationImage: destination)
+    return true
 }
 
 @_cdecl("mps_unary_encode_texture")
@@ -36,16 +84,39 @@ public func mps_unary_encode_texture(
     _ commandBufferHandle: UnsafeMutableRawPointer?,
     _ sourceTextureHandle: UnsafeMutableRawPointer?,
     _ destinationTextureHandle: UnsafeMutableRawPointer?
-) {
+) -> Bool {
     guard let kernel = mps_unary_kernel(kernelHandle),
           let commandBuffer: MTLCommandBuffer = mps_borrow(commandBufferHandle),
           let sourceTexture: MTLTexture = mps_borrow(sourceTextureHandle),
-          let destinationTexture: MTLTexture = mps_borrow(destinationTextureHandle)
+          let destinationTexture: MTLTexture = mps_borrow(destinationTextureHandle),
+          mps_filter_accepts(kernel, commandBuffer, [sourceTexture], destinationTexture)
     else {
-        return
+        return false
     }
 
     kernel.encode(commandBuffer: commandBuffer, sourceTexture: sourceTexture, destinationTexture: destinationTexture)
+    return true
+}
+
+@_cdecl("mps_unary_clip_rect")
+public func mps_unary_clip_rect(
+    _ kernelHandle: UnsafeMutableRawPointer?,
+    _ x: UnsafeMutablePointer<Int>?,
+    _ y: UnsafeMutablePointer<Int>?,
+    _ z: UnsafeMutablePointer<Int>?,
+    _ width: UnsafeMutablePointer<Int>?,
+    _ height: UnsafeMutablePointer<Int>?,
+    _ depth: UnsafeMutablePointer<Int>?
+) -> Bool {
+    guard let kernel = mps_unary_kernel(kernelHandle) else { return false }
+    let clip = kernel.clipRect
+    x?.pointee = clip.origin.x
+    y?.pointee = clip.origin.y
+    z?.pointee = clip.origin.z
+    width?.pointee = clip.size.width
+    height?.pointee = clip.size.height
+    depth?.pointee = clip.size.depth
+    return true
 }
 
 @_cdecl("mps_unary_set_edge_mode")
@@ -95,17 +166,24 @@ public func mps_binary_encode_image(
     _ primaryHandle: UnsafeMutableRawPointer?,
     _ secondaryHandle: UnsafeMutableRawPointer?,
     _ destinationHandle: UnsafeMutableRawPointer?
-) {
+) -> Bool {
     guard let kernel = mps_binary_kernel(kernelHandle),
           let commandBuffer: MTLCommandBuffer = mps_borrow(commandBufferHandle),
           let primary: MPSImage = mps_borrow(primaryHandle),
           let secondary: MPSImage = mps_borrow(secondaryHandle),
-          let destination: MPSImage = mps_borrow(destinationHandle)
+          let destination: MPSImage = mps_borrow(destinationHandle),
+          mps_filter_accepts(
+              kernel,
+              commandBuffer,
+              [primary.texture, secondary.texture],
+              destination.texture
+          )
     else {
-        return
+        return false
     }
 
     kernel.encode(commandBuffer: commandBuffer, primaryImage: primary, secondaryImage: secondary, destinationImage: destination)
+    return true
 }
 
 @_cdecl("mps_binary_encode_texture")
@@ -115,14 +193,20 @@ public func mps_binary_encode_texture(
     _ primaryTextureHandle: UnsafeMutableRawPointer?,
     _ secondaryTextureHandle: UnsafeMutableRawPointer?,
     _ destinationTextureHandle: UnsafeMutableRawPointer?
-) {
+) -> Bool {
     guard let kernel = mps_binary_kernel(kernelHandle),
           let commandBuffer: MTLCommandBuffer = mps_borrow(commandBufferHandle),
           let primaryTexture: MTLTexture = mps_borrow(primaryTextureHandle),
           let secondaryTexture: MTLTexture = mps_borrow(secondaryTextureHandle),
-          let destinationTexture: MTLTexture = mps_borrow(destinationTextureHandle)
+          let destinationTexture: MTLTexture = mps_borrow(destinationTextureHandle),
+          mps_filter_accepts(
+              kernel,
+              commandBuffer,
+              [primaryTexture, secondaryTexture],
+              destinationTexture
+          )
     else {
-        return
+        return false
     }
 
     kernel.encode(
@@ -131,6 +215,7 @@ public func mps_binary_encode_texture(
         secondaryTexture: secondaryTexture,
         destinationTexture: destinationTexture
     )
+    return true
 }
 
 @_cdecl("mps_binary_set_primary_edge_mode")
@@ -198,7 +283,12 @@ public func mps_image_box_new(
     _ kernelWidth: Int,
     _ kernelHeight: Int
 ) -> UnsafeMutableRawPointer? {
-    guard let device: MTLDevice = mps_borrow(deviceHandle) else { return nil }
+    guard let device: MTLDevice = mps_borrow(deviceHandle),
+          kernelWidth > 0, kernelWidth % 2 == 1,
+          kernelHeight > 0, kernelHeight % 2 == 1
+    else {
+        return nil
+    }
     return mps_retain(MPSImageBox(device: device, kernelWidth: kernelWidth, kernelHeight: kernelHeight))
 }
 
@@ -219,7 +309,13 @@ public func mps_image_median_new(
     _ deviceHandle: UnsafeMutableRawPointer?,
     _ kernelDiameter: Int
 ) -> UnsafeMutableRawPointer? {
-    guard let device: MTLDevice = mps_borrow(deviceHandle) else { return nil }
+    guard let device: MTLDevice = mps_borrow(deviceHandle),
+          kernelDiameter % 2 == 1,
+          kernelDiameter >= MPSImageMedian.minKernelDiameter(),
+          kernelDiameter <= MPSImageMedian.maxKernelDiameter()
+    else {
+        return nil
+    }
     return mps_retain(MPSImageMedian(device: device, kernelDiameter: kernelDiameter))
 }
 
@@ -231,7 +327,9 @@ public func mps_image_convolution_new(
     _ weights: UnsafePointer<Float>?
 ) -> UnsafeMutableRawPointer? {
     guard let device: MTLDevice = mps_borrow(deviceHandle),
-          let weights
+          let weights,
+          kernelWidth > 0, kernelWidth % 2 == 1,
+          kernelHeight > 0, kernelHeight % 2 == 1
     else {
         return nil
     }
@@ -317,6 +415,8 @@ public func mps_image_histogram_encode_image(
           let commandBuffer: MTLCommandBuffer = mps_borrow(commandBufferHandle),
           let source: MPSImage = mps_borrow(sourceHandle),
           let histogramBuffer: MTLBuffer = mps_borrow(histogramBufferHandle),
+          source.texture.textureType == .type2D,
+          mps_kernel_accepts(histogram, commandBuffer, [source.texture]),
           mps_histogram_fits(histogram, source.pixelFormat, histogramBuffer, histogramOffset)
     else {
         return false
@@ -353,6 +453,8 @@ public func mps_image_histogram_encode_texture(
           let commandBuffer: MTLCommandBuffer = mps_borrow(commandBufferHandle),
           let sourceTexture: MTLTexture = mps_borrow(sourceTextureHandle),
           let histogramBuffer: MTLBuffer = mps_borrow(histogramBufferHandle),
+          sourceTexture.textureType == .type2D,
+          mps_kernel_accepts(histogram, commandBuffer, [sourceTexture]),
           mps_histogram_fits(histogram, sourceTexture.pixelFormat, histogramBuffer, histogramOffset)
     else {
         return false

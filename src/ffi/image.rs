@@ -22,6 +22,13 @@ extern "C" {
     pub fn mps_image_pixel_size(handle: *mut c_void) -> usize;
     pub fn mps_image_feature_channel_format(handle: *mut c_void) -> usize;
     pub fn mps_image_pixel_format(handle: *mut c_void) -> usize;
+    pub fn mps_image_texture_info(
+        handle: *mut c_void,
+        texture: *mut *mut c_void,
+        texture_type: *mut usize,
+        array_length: *mut usize,
+        usage: *mut usize,
+    ) -> bool;
     pub fn mps_get_image_type(handle: *mut c_void) -> u32;
     pub fn mps_image_batch_increment_read_count(
         handles: *const *mut c_void,
