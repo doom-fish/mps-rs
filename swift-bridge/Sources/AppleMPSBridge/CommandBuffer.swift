@@ -36,18 +36,6 @@ public func mps_command_buffer_new_with_command_buffer(
     return mps_retain(MPSCommandBuffer(commandBuffer: commandBuffer))
 }
 
-@_cdecl("mps_command_buffer_from_command_queue")
-public func mps_command_buffer_from_command_queue(
-    _ commandQueueHandle: UnsafeMutableRawPointer?
-) -> UnsafeMutableRawPointer? {
-    guard let commandQueue: MTLCommandQueue = mps_borrow(commandQueueHandle),
-          let commandBuffer = commandQueue.makeCommandBuffer()
-    else {
-        return nil
-    }
-    return mps_retain(MPSCommandBuffer(commandBuffer: commandBuffer))
-}
-
 @_cdecl("mps_command_buffer_set_predicate")
 public func mps_command_buffer_set_predicate(
     _ commandBufferHandle: UnsafeMutableRawPointer?,

@@ -42,7 +42,9 @@ blur.encode_image(&command_buffer, &src, &dst).expect("encode blur");
 - Core helpers:
   - `supports_mtl_device`, `preferred_device`, `hint_temporary_memory_high_water_mark`, `set_heap_cache_duration`
   - `Predicate` and `MpsCommandBuffer` (predicates and heap prefetch only; the encoders
-    take `apple_metal::CommandBuffer`, so kernels never see an `MpsCommandBuffer` predicate)
+    take `apple_metal::CommandBuffer`, so kernels never see an `MpsCommandBuffer` predicate).
+    `MpsCommandBuffer::command_buffer` returns the wrapped apple-metal command buffer, which
+    is how a buffer made by `from_command_queue` is committed
 - Images:
   - `ImageDescriptor` + `Image` for lazily allocated MPS images or texture-backed images
   - Float32 image read/write helpers plus raw byte transfers with `MPSDataLayout`, checked against the image's channel format, region and feature-channel window
@@ -86,10 +88,11 @@ See [`COVERAGE.md`](COVERAGE.md) for the family matrix and what the coverage aud
 - Image filters check their textures against each kernel's rules before encoding (pixel
   format class, color model or channel count, texture type, feature channels, aliasing,
   shader usage, device and, for min/max statistics, destination width) and return `Err`.
-- Every encode checks that the command buffer is still recording. MPS still aborts if
-  an apple-metal encoder is open on the same command buffer, or if another thread
-  commits it during an encode: apple-metal does not expose its encoder state to other
-  crates, so end your encoders before encoding MPS work.
+- Every encode runs through apple-metal's `CommandBuffer::encode_foreign`. It returns
+  `Error::CommandBuffer` when the command buffer no longer records (`InvalidState`) or an
+  apple-metal encoder is still open on it (`ActiveEncoder`), where MPS would abort the
+  process. While MPS encodes, commits, enqueues and new encoders on the same command buffer
+  fail with `ActiveEncoder` on every thread, so a concurrent commit can't land mid-encode.
 - MPS kernels and descriptors are `Send` but not `Sync`: MPS allows a kernel to be used by
   one thread at a time. Data objects such as `Matrix`, `Vector`, `NDArray` and `Image`
   remain `Sync`.

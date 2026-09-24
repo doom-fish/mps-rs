@@ -431,7 +431,6 @@ impl NNGraph {
         command_buffer: &CommandBuffer,
         source_images: &[&Image],
     ) -> Option<Image> {
-        crate::core::ensure_recording(command_buffer).ok()?;
         if source_images.len() != self.source_image_count() {
             return None;
         }
@@ -441,14 +440,10 @@ impl NNGraph {
         } else {
             handles.as_ptr()
         };
-        let ptr = unsafe {
-            ffi::mps_nn_graph_encode(
-                self.ptr,
-                command_buffer.as_ptr(),
-                source_images.len(),
-                source_handles,
-            )
-        };
+        let ptr = crate::core::encode(command_buffer, |buffer| unsafe {
+            ffi::mps_nn_graph_encode(self.ptr, buffer, source_images.len(), source_handles)
+        })
+        .ok()?;
         if ptr.is_null() {
             None
         } else {
@@ -457,7 +452,10 @@ impl NNGraph {
     }
 }
 
-opaque_handle!(CnnConvolutionDescriptor, "Wraps `MPSCNNConvolutionDescriptor`.");
+opaque_handle!(
+    CnnConvolutionDescriptor,
+    "Wraps `MPSCNNConvolutionDescriptor`."
+);
 impl CnnConvolutionDescriptor {
     /// Wraps a constructor on `MPSCNNConvolutionDescriptor`.
     #[must_use]
@@ -695,7 +693,10 @@ fn ensure_optimizer_matrices(matrices: &[Option<&Matrix>]) -> Result<()> {
     Ok(())
 }
 
-opaque_handle!(RnnSingleGateDescriptor, "Wraps `MPSRNNSingleGateDescriptor`.");
+opaque_handle!(
+    RnnSingleGateDescriptor,
+    "Wraps `MPSRNNSingleGateDescriptor`."
+);
 impl RnnSingleGateDescriptor {
     /// Wraps a constructor on `MPSRNNSingleGateDescriptor`.
     #[must_use]
@@ -879,7 +880,6 @@ impl CnnConvolution {
         source: &Image,
         destination: &Image,
     ) -> Result<()> {
-        crate::core::ensure_recording(command_buffer)?;
         for (field, image, needed) in [
             (
                 "source feature channels",
@@ -900,15 +900,14 @@ impl CnnConvolution {
                 });
             }
         }
-        unsafe {
+        crate::core::encode(command_buffer, |buffer| unsafe {
             ffi::mps_cnn_convolution_encode_image(
                 self.ptr,
-                command_buffer.as_ptr(),
+                buffer,
                 source.as_ptr(),
                 destination.as_ptr(),
             );
-        };
-        Ok(())
+        })
     }
 }
 
@@ -1133,7 +1132,10 @@ impl NNOptimizerDescriptor {
 opaque_handle!(NNOptimizer, "Wraps `MPSNNOptimizer`.");
 impl_optimizer_common!(NNOptimizer);
 
-opaque_handle!(NNOptimizerStochasticGradientDescent, "Wraps `MPSNNOptimizerStochasticGradientDescent`.");
+opaque_handle!(
+    NNOptimizerStochasticGradientDescent,
+    "Wraps `MPSNNOptimizerStochasticGradientDescent`."
+);
 impl_optimizer_common!(NNOptimizerStochasticGradientDescent);
 impl NNOptimizerStochasticGradientDescent {
     /// Wraps a constructor on `MPSNNOptimizerStochasticGradientDescent`.
@@ -1197,7 +1199,6 @@ impl NNOptimizerStochasticGradientDescent {
         input_momentum_vector: Option<&Vector>,
         result_values_vector: &Vector,
     ) -> Result<()> {
-        crate::core::ensure_recording(command_buffer)?;
         ensure_optimizer_vectors(&[
             Some(input_gradient_vector),
             Some(input_values_vector),
@@ -1205,17 +1206,16 @@ impl NNOptimizerStochasticGradientDescent {
             Some(result_values_vector),
         ])?;
         let input_momentum_ptr = input_momentum_vector.map_or(ptr::null_mut(), Vector::as_ptr);
-        unsafe {
+        crate::core::encode(command_buffer, |buffer| unsafe {
             ffi::mps_nn_optimizer_sgd_encode_vector(
                 self.ptr,
-                command_buffer.as_ptr(),
+                buffer,
                 input_gradient_vector.as_ptr(),
                 input_values_vector.as_ptr(),
                 input_momentum_ptr,
                 result_values_vector.as_ptr(),
             );
-        };
-        Ok(())
+        })
     }
 
     /// Wraps the corresponding `MPSNNOptimizerStochasticGradientDescent` encode entry point.
@@ -1227,7 +1227,6 @@ impl NNOptimizerStochasticGradientDescent {
         input_momentum_matrix: Option<&Matrix>,
         result_values_matrix: &Matrix,
     ) -> Result<()> {
-        crate::core::ensure_recording(command_buffer)?;
         ensure_optimizer_matrices(&[
             Some(input_gradient_matrix),
             Some(input_values_matrix),
@@ -1235,17 +1234,16 @@ impl NNOptimizerStochasticGradientDescent {
             Some(result_values_matrix),
         ])?;
         let input_momentum_ptr = input_momentum_matrix.map_or(ptr::null_mut(), Matrix::as_ptr);
-        unsafe {
+        crate::core::encode(command_buffer, |buffer| unsafe {
             ffi::mps_nn_optimizer_sgd_encode_matrix(
                 self.ptr,
-                command_buffer.as_ptr(),
+                buffer,
                 input_gradient_matrix.as_ptr(),
                 input_values_matrix.as_ptr(),
                 input_momentum_ptr,
                 result_values_matrix.as_ptr(),
             );
-        };
-        Ok(())
+        })
     }
 }
 
@@ -1313,24 +1311,22 @@ impl NNOptimizerRmsProp {
         input_sum_of_squares_vector: &Vector,
         result_values_vector: &Vector,
     ) -> Result<()> {
-        crate::core::ensure_recording(command_buffer)?;
         ensure_optimizer_vectors(&[
             Some(input_gradient_vector),
             Some(input_values_vector),
             Some(input_sum_of_squares_vector),
             Some(result_values_vector),
         ])?;
-        unsafe {
+        crate::core::encode(command_buffer, |buffer| unsafe {
             ffi::mps_nn_optimizer_rmsprop_encode_vector(
                 self.ptr,
-                command_buffer.as_ptr(),
+                buffer,
                 input_gradient_vector.as_ptr(),
                 input_values_vector.as_ptr(),
                 input_sum_of_squares_vector.as_ptr(),
                 result_values_vector.as_ptr(),
             );
-        };
-        Ok(())
+        })
     }
 
     /// Wraps the corresponding `MPSNNOptimizerRMSProp` encode entry point.
@@ -1342,24 +1338,22 @@ impl NNOptimizerRmsProp {
         input_sum_of_squares_matrix: &Matrix,
         result_values_matrix: &Matrix,
     ) -> Result<()> {
-        crate::core::ensure_recording(command_buffer)?;
         ensure_optimizer_matrices(&[
             Some(input_gradient_matrix),
             Some(input_values_matrix),
             Some(input_sum_of_squares_matrix),
             Some(result_values_matrix),
         ])?;
-        unsafe {
+        crate::core::encode(command_buffer, |buffer| unsafe {
             ffi::mps_nn_optimizer_rmsprop_encode_matrix(
                 self.ptr,
-                command_buffer.as_ptr(),
+                buffer,
                 input_gradient_matrix.as_ptr(),
                 input_values_matrix.as_ptr(),
                 input_sum_of_squares_matrix.as_ptr(),
                 result_values_matrix.as_ptr(),
             );
-        };
-        Ok(())
+        })
     }
 }
 
@@ -1449,7 +1443,6 @@ impl NNOptimizerAdam {
         input_velocity_vector: &Vector,
         result_values_vector: &Vector,
     ) -> Result<()> {
-        crate::core::ensure_recording(command_buffer)?;
         ensure_optimizer_vectors(&[
             Some(input_gradient_vector),
             Some(input_values_vector),
@@ -1457,18 +1450,17 @@ impl NNOptimizerAdam {
             Some(input_velocity_vector),
             Some(result_values_vector),
         ])?;
-        unsafe {
+        crate::core::encode(command_buffer, |buffer| unsafe {
             ffi::mps_nn_optimizer_adam_encode_vector(
                 self.ptr,
-                command_buffer.as_ptr(),
+                buffer,
                 input_gradient_vector.as_ptr(),
                 input_values_vector.as_ptr(),
                 input_momentum_vector.as_ptr(),
                 input_velocity_vector.as_ptr(),
                 result_values_vector.as_ptr(),
             );
-        };
-        Ok(())
+        })
     }
 
     /// Wraps the corresponding `MPSNNOptimizerAdam` encode entry point.
@@ -1481,7 +1473,6 @@ impl NNOptimizerAdam {
         input_velocity_matrix: &Matrix,
         result_values_matrix: &Matrix,
     ) -> Result<()> {
-        crate::core::ensure_recording(command_buffer)?;
         ensure_optimizer_matrices(&[
             Some(input_gradient_matrix),
             Some(input_values_matrix),
@@ -1489,18 +1480,17 @@ impl NNOptimizerAdam {
             Some(input_velocity_matrix),
             Some(result_values_matrix),
         ])?;
-        unsafe {
+        crate::core::encode(command_buffer, |buffer| unsafe {
             ffi::mps_nn_optimizer_adam_encode_matrix(
                 self.ptr,
-                command_buffer.as_ptr(),
+                buffer,
                 input_gradient_matrix.as_ptr(),
                 input_values_matrix.as_ptr(),
                 input_momentum_matrix.as_ptr(),
                 input_velocity_matrix.as_ptr(),
                 result_values_matrix.as_ptr(),
             );
-        };
-        Ok(())
+        })
     }
 
     /// Wraps the corresponding `MPSNNOptimizerAdam` encode entry point.
@@ -1515,7 +1505,6 @@ impl NNOptimizerAdam {
         maximum_velocity_vector: Option<&Vector>,
         result_values_vector: &Vector,
     ) -> Result<()> {
-        crate::core::ensure_recording(command_buffer)?;
         ensure_optimizer_vectors(&[
             Some(input_gradient_vector),
             Some(input_values_vector),
@@ -1525,10 +1514,10 @@ impl NNOptimizerAdam {
             Some(result_values_vector),
         ])?;
         let maximum_velocity_ptr = maximum_velocity_vector.map_or(ptr::null_mut(), Vector::as_ptr);
-        unsafe {
+        crate::core::encode(command_buffer, |buffer| unsafe {
             ffi::mps_nn_optimizer_adam_encode_amsgrad_vector(
                 self.ptr,
-                command_buffer.as_ptr(),
+                buffer,
                 input_gradient_vector.as_ptr(),
                 input_values_vector.as_ptr(),
                 input_momentum_vector.as_ptr(),
@@ -1536,8 +1525,7 @@ impl NNOptimizerAdam {
                 maximum_velocity_ptr,
                 result_values_vector.as_ptr(),
             );
-        };
-        Ok(())
+        })
     }
 
     /// Wraps the corresponding `MPSNNOptimizerAdam` encode entry point.
@@ -1552,7 +1540,6 @@ impl NNOptimizerAdam {
         maximum_velocity_matrix: Option<&Matrix>,
         result_values_matrix: &Matrix,
     ) -> Result<()> {
-        crate::core::ensure_recording(command_buffer)?;
         ensure_optimizer_matrices(&[
             Some(input_gradient_matrix),
             Some(input_values_matrix),
@@ -1562,10 +1549,10 @@ impl NNOptimizerAdam {
             Some(result_values_matrix),
         ])?;
         let maximum_velocity_ptr = maximum_velocity_matrix.map_or(ptr::null_mut(), Matrix::as_ptr);
-        unsafe {
+        crate::core::encode(command_buffer, |buffer| unsafe {
             ffi::mps_nn_optimizer_adam_encode_amsgrad_matrix(
                 self.ptr,
-                command_buffer.as_ptr(),
+                buffer,
                 input_gradient_matrix.as_ptr(),
                 input_values_matrix.as_ptr(),
                 input_momentum_matrix.as_ptr(),
@@ -1573,8 +1560,7 @@ impl NNOptimizerAdam {
                 maximum_velocity_ptr,
                 result_values_matrix.as_ptr(),
             );
-        };
-        Ok(())
+        })
     }
 }
 
@@ -1841,7 +1827,6 @@ impl RnnImageInferenceLayer {
         destination_images: &[&Image],
         recurrent_input_state: Option<&RnnRecurrentImageState>,
     ) -> Option<RnnRecurrentImageState> {
-        crate::core::ensure_recording(command_buffer).ok()?;
         if source_images.len() != destination_images.len() {
             return None;
         }
@@ -1862,16 +1847,17 @@ impl RnnImageInferenceLayer {
         };
         let recurrent_input_ptr =
             recurrent_input_state.map_or(ptr::null_mut(), RnnRecurrentImageState::as_ptr);
-        let ptr = unsafe {
+        let ptr = crate::core::encode(command_buffer, |buffer| unsafe {
             ffi::mps_rnn_image_inference_layer_encode_sequence(
                 self.ptr,
-                command_buffer.as_ptr(),
+                buffer,
                 source_images.len(),
                 source_ptr,
                 destination_ptr,
                 recurrent_input_ptr,
             )
-        };
+        })
+        .ok()?;
         if ptr.is_null() {
             None
         } else {

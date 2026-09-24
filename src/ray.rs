@@ -294,16 +294,14 @@ impl PolygonAccelerationStructure {
 
     /// Wraps the corresponding `MPSPolygonAccelerationStructure` encode entry point.
     pub fn encode_refit(&self, command_buffer: &CommandBuffer) -> Result<()> {
-        crate::core::ensure_recording(command_buffer)?;
         if self.ensure_built()?.usage & acceleration_structure_usage::REFIT == 0 {
             return Err(Error::InvalidArgument(
                 "refitting needs a structure rebuilt with acceleration_structure_usage::REFIT",
             ));
         }
-        unsafe {
-            ffi::mps_polygon_acceleration_structure_encode_refit(self.ptr, command_buffer.as_ptr());
-        };
-        Ok(())
+        crate::core::encode(command_buffer, |buffer| unsafe {
+            ffi::mps_polygon_acceleration_structure_encode_refit(self.ptr, buffer);
+        })
     }
 
     fn ensure_built(&self) -> Result<Geometry> {
@@ -626,7 +624,6 @@ impl RayIntersector {
         ray_count: usize,
         acceleration_structure: &PolygonAccelerationStructure,
     ) -> Result<()> {
-        crate::core::ensure_recording(command_buffer)?;
         if intersection_type > intersection_type::ANY {
             return Err(Error::InvalidArgument(
                 "intersection_type is not an MPSIntersectionType",
@@ -657,10 +654,10 @@ impl RayIntersector {
             ray_count,
         )?;
         acceleration_structure.ensure_built()?;
-        unsafe {
+        crate::core::encode(command_buffer, |buffer| unsafe {
             ffi::mps_ray_intersector_encode_intersection(
                 self.ptr,
-                command_buffer.as_ptr(),
+                buffer,
                 intersection_type,
                 ray_buffer.as_ptr(),
                 ray_buffer_offset,
@@ -669,8 +666,7 @@ impl RayIntersector {
                 ray_count,
                 acceleration_structure.as_ptr(),
             );
-        };
-        Ok(())
+        })
     }
 }
 

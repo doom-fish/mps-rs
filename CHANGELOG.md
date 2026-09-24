@@ -78,11 +78,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   through a float texture parameter: the results are undefined and Metal's
   validation layer aborts. `encode_image`, `encode_texture` and
   `histogram_size_for_source_format` now refuse integer formats.
-- Encoding into a committed command buffer aborted. Every encode path, the
-  temporary `State` constructors, the synchronize helpers,
+- Encoding into a committed command buffer aborted, and so did encoding while an
+  apple-metal encoder was open on it ("A command encoder is already encoding to
+  this command buffer") or while another thread committed it
+  (`_status < MTLCommandBufferStatusCommitted` in `setCurrentCommandEncoder:`,
+  reproduced by a 4096-iteration commit race). Every encode path, the temporary
+  `State` constructors, the synchronize helpers,
   `hint_temporary_memory_high_water_mark`, `set_heap_cache_duration` and
-  `MpsCommandBuffer::prefetch_heap_for_workload_size` now check that the
-  command buffer is still recording.
+  `MpsCommandBuffer::prefetch_heap_for_workload_size` now run inside apple-metal's
+  `CommandBuffer::encode_foreign`, which refuses a buffer that no longer records
+  or has an open encoder and holds off commits, enqueues and new encoders until
+  MPS returns.
 - COVERAGE.md and COVERAGE_AUDIT*.md claimed 479/479 symbols; 353 of them are
   method-less opaque handles and 29 raw-value newtypes. They now report 97
   verified symbols and list the rest as gaps. The README states the platform
@@ -122,14 +128,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   MPS reads vertices through the indices, whose values the crate can't check.
 - **BREAKING:** `Error` is `#[non_exhaustive]` and gains `BufferTooSmall`,
   `Misaligned`, `DimensionMismatch`, `InvalidArgument`, `UnsupportedDataType`,
-  `Overflow`, `Unsupported`, `Rejected`, `NotRecording` and
-  `UnsupportedPixelFormat`.
+  `Overflow`, `Unsupported`, `Rejected`, `CommandBuffer` and
+  `UnsupportedPixelFormat`. `CommandBuffer` carries the
+  `apple_metal::CommandBufferError` (`InvalidState` for a buffer that no longer
+  records, `ActiveEncoder` for an open encoder) and is the error's `source()`.
 - `NDArrayMatrixMultiplication::new` accepts 2 or 3 sources only, and the
   `ffi` image-transfer, histogram, filter-encode, heap-hint and prefetch
-  functions changed signature.
+  functions changed signature; `ffi::mps_command_buffer_from_command_queue` is
+  gone because `MpsCommandBuffer::from_command_queue` now creates the buffer
+  through apple-metal.
 
 ### Added
 
+- `MpsCommandBuffer::command_buffer` returns the wrapped apple-metal command
+  buffer, so buffers made by `from_command_queue` can be committed.
 - `MatrixDescriptor`, `VectorDescriptor` and `NDArrayDescriptor`
   `required_buffer_length`, `MatrixMultiplication::descriptor`,
   `NDArrayMatrixMultiplication::source_count`, `Image::feature_channel_format`

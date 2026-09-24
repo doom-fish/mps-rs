@@ -30,9 +30,7 @@ pub enum Error {
     Overflow,
     Unsupported(&'static str),
     Rejected(&'static str),
-    NotRecording {
-        status: usize,
-    },
+    CommandBuffer(apple_metal::CommandBufferError),
     UnsupportedPixelFormat {
         operand: &'static str,
         pixel_format: usize,
@@ -74,10 +72,7 @@ impl fmt::Display for Error {
             Self::Rejected(operation) => {
                 write!(f, "Metal Performance Shaders rejected {operation}")
             }
-            Self::NotRecording { status } => write!(
-                f,
-                "the command buffer no longer accepts commands (MTLCommandBufferStatus {status})"
-            ),
+            Self::CommandBuffer(error) => write!(f, "command buffer: {error}"),
             Self::UnsupportedPixelFormat {
                 operand,
                 pixel_format,
@@ -89,4 +84,11 @@ impl fmt::Display for Error {
     }
 }
 
-impl std::error::Error for Error {}
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::CommandBuffer(error) => Some(error),
+            _ => None,
+        }
+    }
+}

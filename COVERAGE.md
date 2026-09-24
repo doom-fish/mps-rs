@@ -26,7 +26,7 @@ and earlier versions of this file counted them as implemented.
 | `MPSCNN*` | Partial | `CnnConvolution`, its descriptor and weights state. Pooling, normalization, loss, dropout, fully connected, transposed and binary convolution, arithmetic and the gradient kernels are handles only. |
 | `MPSRNN*` | Partial | RNN, GRU and LSTM descriptors and `RnnImageInferenceLayer`; the matrix layers are handles only. |
 | `MPSAccelerationStructure`, `MPSRayIntersector`, `MPSPolygonAccelerationStructure` | Partial, deprecated since macOS 14 | Polygon acceleration structures (rebuild, refit) and ray intersection with validated buffers. Instance, triangle and quadrilateral structures, groups and polygon buffers are handles only. |
-| `MPSCommandBuffer` | Partial | `MpsCommandBuffer` sets predicates and prefetches the heap, but the encoders take `apple_metal::CommandBuffer`, so kernels never see its predicate. `commitAndContinue` is not exposed because it commits the wrapped buffer behind apple-metal's state tracking. |
+| `MPSCommandBuffer` | Partial | `MpsCommandBuffer` sets predicates and prefetches the heap, but the encoders take `apple_metal::CommandBuffer`, so kernels never see its predicate. `command_buffer()` returns the wrapped apple-metal buffer so it can be committed. `commitAndContinue` is not exposed because it commits the wrapped buffer behind apple-metal's state tracking. |
 | `MPSSVGF` | Properties only | `SVGF` exposes its weights and channel counts; the denoiser has no encode methods, and `MPSTemporalAA` is a handle only. |
 | `MPSIntersectionGroup` | Not in the SDK | Absent from the macOS 26.2 headers. |
 

@@ -570,7 +570,6 @@ impl MatrixMultiplication {
         right: &Matrix,
         result: &Matrix,
     ) -> Result<()> {
-        crate::core::ensure_recording(command_buffer)?;
         let descriptor = self.descriptor;
         let (m, n, k) = (
             descriptor.result_rows,
@@ -597,16 +596,15 @@ impl MatrixMultiplication {
             ));
         }
         // SAFETY: All handles come from safe wrappers and remain alive for the call.
-        unsafe {
+        crate::core::encode(command_buffer, |buffer| unsafe {
             ffi::mps_matrix_multiplication_encode(
                 self.ptr,
-                command_buffer.as_ptr(),
+                buffer,
                 left.as_ptr(),
                 right.as_ptr(),
                 result.as_ptr(),
             );
-        };
-        Ok(())
+        })
     }
 }
 

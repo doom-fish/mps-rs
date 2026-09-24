@@ -1,4 +1,3 @@
-use crate::core::ensure_recording;
 use crate::error::{Error, Result};
 use crate::ffi;
 use crate::filter_rules::{self, Operand, UnaryRules};
@@ -47,20 +46,16 @@ macro_rules! impl_unary_methods {
                 source: &Image,
                 destination: &Image,
             ) -> Result<()> {
-                self.check_operands(
-                    command_buffer,
-                    &Operand::image(source)?,
-                    &Operand::image(destination)?,
-                )?;
+                self.check_operands(&Operand::image(source)?, &Operand::image(destination)?)?;
                 // SAFETY: All handles come from safe wrappers and remain alive for the call.
-                let accepted = unsafe {
+                let accepted = crate::core::encode(command_buffer, |buffer| unsafe {
                     ffi::mps_unary_encode_image(
                         self.ptr,
-                        command_buffer.as_ptr(),
+                        buffer,
                         source.as_ptr(),
                         destination.as_ptr(),
                     )
-                };
+                })?;
                 accepted
                     .then_some(())
                     .ok_or(Error::Rejected("MPSUnaryImageKernel encode"))
@@ -73,32 +68,22 @@ macro_rules! impl_unary_methods {
                 source: &MetalTexture,
                 destination: &MetalTexture,
             ) -> Result<()> {
-                self.check_operands(
-                    command_buffer,
-                    &Operand::texture(source),
-                    &Operand::texture(destination),
-                )?;
+                self.check_operands(&Operand::texture(source), &Operand::texture(destination))?;
                 // SAFETY: All handles come from safe wrappers and remain alive for the call.
-                let accepted = unsafe {
+                let accepted = crate::core::encode(command_buffer, |buffer| unsafe {
                     ffi::mps_unary_encode_texture(
                         self.ptr,
-                        command_buffer.as_ptr(),
+                        buffer,
                         source.as_ptr(),
                         destination.as_ptr(),
                     )
-                };
+                })?;
                 accepted
                     .then_some(())
                     .ok_or(Error::Rejected("MPSUnaryImageKernel encode"))
             }
 
-            fn check_operands(
-                &self,
-                command_buffer: &CommandBuffer,
-                source: &Operand,
-                destination: &Operand,
-            ) -> Result<()> {
-                ensure_recording(command_buffer)?;
+            fn check_operands(&self, source: &Operand, destination: &Operand) -> Result<()> {
                 let rules: UnaryRules = $rules;
                 let clip_rect = if rules.needs_clip_rect() {
                     unary_clip_rect(self.ptr)
@@ -144,22 +129,21 @@ macro_rules! impl_binary_methods {
                 secondary: &Image,
                 destination: &Image,
             ) -> Result<()> {
-                ensure_recording(command_buffer)?;
                 filter_rules::check_binary(
                     &Operand::image(primary)?,
                     &Operand::image(secondary)?,
                     &Operand::image(destination)?,
                 )?;
                 // SAFETY: All handles come from safe wrappers and remain alive for the call.
-                let accepted = unsafe {
+                let accepted = crate::core::encode(command_buffer, |buffer| unsafe {
                     ffi::mps_binary_encode_image(
                         self.ptr,
-                        command_buffer.as_ptr(),
+                        buffer,
                         primary.as_ptr(),
                         secondary.as_ptr(),
                         destination.as_ptr(),
                     )
-                };
+                })?;
                 accepted
                     .then_some(())
                     .ok_or(Error::Rejected("MPSBinaryImageKernel encode"))
@@ -173,22 +157,21 @@ macro_rules! impl_binary_methods {
                 secondary: &MetalTexture,
                 destination: &MetalTexture,
             ) -> Result<()> {
-                ensure_recording(command_buffer)?;
                 filter_rules::check_binary(
                     &Operand::texture(primary),
                     &Operand::texture(secondary),
                     &Operand::texture(destination),
                 )?;
                 // SAFETY: All handles come from safe wrappers and remain alive for the call.
-                let accepted = unsafe {
+                let accepted = crate::core::encode(command_buffer, |buffer| unsafe {
                     ffi::mps_binary_encode_texture(
                         self.ptr,
-                        command_buffer.as_ptr(),
+                        buffer,
                         primary.as_ptr(),
                         secondary.as_ptr(),
                         destination.as_ptr(),
                     )
-                };
+                })?;
                 accepted
                     .then_some(())
                     .ok_or(Error::Rejected("MPSBinaryImageKernel encode"))
@@ -525,20 +508,19 @@ impl ImageHistogram {
         histogram_buffer: &MetalBuffer,
         histogram_offset: usize,
     ) -> Result<()> {
-        ensure_recording(command_buffer)?;
         let operand = Operand::image(source)?;
         filter_rules::check_histogram_source(&operand)?;
         self.ensure_histogram_fits(source.pixel_format(), histogram_buffer, histogram_offset)?;
         // SAFETY: All handles come from safe wrappers and remain alive for the call.
-        let accepted = unsafe {
+        let accepted = crate::core::encode(command_buffer, |buffer| unsafe {
             ffi::mps_image_histogram_encode_image(
                 self.ptr,
-                command_buffer.as_ptr(),
+                buffer,
                 source.as_ptr(),
                 histogram_buffer.as_ptr(),
                 histogram_offset,
             )
-        };
+        })?;
         if accepted {
             Ok(())
         } else {
@@ -554,19 +536,18 @@ impl ImageHistogram {
         histogram_buffer: &MetalBuffer,
         histogram_offset: usize,
     ) -> Result<()> {
-        ensure_recording(command_buffer)?;
         filter_rules::check_histogram_source(&Operand::texture(source))?;
         self.ensure_histogram_fits(source.pixel_format(), histogram_buffer, histogram_offset)?;
         // SAFETY: All handles come from safe wrappers and remain alive for the call.
-        let accepted = unsafe {
+        let accepted = crate::core::encode(command_buffer, |buffer| unsafe {
             ffi::mps_image_histogram_encode_texture(
                 self.ptr,
-                command_buffer.as_ptr(),
+                buffer,
                 source.as_ptr(),
                 histogram_buffer.as_ptr(),
                 histogram_offset,
             )
-        };
+        })?;
         if accepted {
             Ok(())
         } else {
@@ -612,7 +593,10 @@ impl ImageHistogram {
 
 const HISTOGRAM_OFFSET_ALIGNMENT: usize = 32;
 
-opaque_handle!(ImageStatisticsMinAndMax, "Wraps `MPSImageStatisticsMinAndMax`.");
+opaque_handle!(
+    ImageStatisticsMinAndMax,
+    "Wraps `MPSImageStatisticsMinAndMax`."
+);
 impl ImageStatisticsMinAndMax {
     /// Wraps a constructor on `MPSImageStatisticsMinAndMax`.
     #[must_use]

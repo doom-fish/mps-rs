@@ -1,8 +1,7 @@
 use crate::error::{Error, Result};
 use crate::ffi;
 use apple_metal::{
-    command_buffer_status, CommandBuffer as MetalCommandBuffer, CommandQueue, ManuallyDropDevice,
-    MetalBuffer, MetalDevice,
+    CommandBuffer as MetalCommandBuffer, CommandQueue, ManuallyDropDevice, MetalBuffer, MetalDevice,
 };
 use core::ffi::c_void;
 use core::ptr;
@@ -85,11 +84,13 @@ pub fn preferred_device(options: usize) -> Option<PreferredDevice> {
     }
 }
 
-pub(crate) fn ensure_recording(command_buffer: &MetalCommandBuffer) -> Result<()> {
-    match command_buffer.status() {
-        command_buffer_status::NOT_ENQUEUED | command_buffer_status::ENQUEUED => Ok(()),
-        status => Err(Error::NotRecording { status }),
-    }
+pub(crate) fn encode<R>(
+    command_buffer: &MetalCommandBuffer,
+    call: impl FnOnce(*mut c_void) -> R,
+) -> Result<R> {
+    command_buffer
+        .encode_foreign(|foreign| call(foreign.command_buffer()))
+        .map_err(Error::CommandBuffer)
 }
 
 /// Calls `MPSHintTemporaryMemoryHighWaterMark` on the wrapped command buffer.
@@ -97,10 +98,10 @@ pub fn hint_temporary_memory_high_water_mark(
     command_buffer: &MetalCommandBuffer,
     bytes: usize,
 ) -> Result<()> {
-    ensure_recording(command_buffer)?;
     // SAFETY: The command buffer pointer is valid for the call.
-    let accepted =
-        unsafe { ffi::mps_hint_temporary_memory_high_water_mark(command_buffer.as_ptr(), bytes) };
+    let accepted = encode(command_buffer, |buffer| unsafe {
+        ffi::mps_hint_temporary_memory_high_water_mark(buffer, bytes)
+    })?;
     accepted
         .then_some(())
         .ok_or(Error::Rejected("MPSHintTemporaryMemoryHighWaterMark"))
@@ -111,9 +112,10 @@ pub use crate::generated::core::*;
 
 /// Calls `MPSSetHeapCacheDuration` on the wrapped command buffer.
 pub fn set_heap_cache_duration(command_buffer: &MetalCommandBuffer, seconds: f64) -> Result<()> {
-    ensure_recording(command_buffer)?;
     // SAFETY: The command buffer pointer is valid for the call.
-    let accepted = unsafe { ffi::mps_set_heap_cache_duration(command_buffer.as_ptr(), seconds) };
+    let accepted = encode(command_buffer, |buffer| unsafe {
+        ffi::mps_set_heap_cache_duration(buffer, seconds)
+    })?;
     accepted
         .then_some(())
         .ok_or(Error::Rejected("MPSSetHeapCacheDuration"))
@@ -157,8 +159,35 @@ impl Predicate {
     }
 }
 
-opaque_handle!(CommandBuffer, "Wraps `MPSCommandBuffer`.");
+/// Wraps `MPSCommandBuffer`.
+pub struct CommandBuffer {
+    ptr: *mut c_void,
+    command_buffer: MetalCommandBuffer,
+}
+
+// SAFETY: MPS objects may move between threads; kernels and descriptors are used by one thread at a time.
+unsafe impl Send for CommandBuffer {}
+
+impl Drop for CommandBuffer {
+    fn drop(&mut self) {
+        // SAFETY: `ptr` is a +1 retained MPS object owned by this wrapper.
+        unsafe { ffi::mps_object_release(self.ptr) };
+    }
+}
+
 impl CommandBuffer {
+    /// Returns the retained Objective-C pointer backing this wrapper.
+    #[must_use]
+    pub const fn as_ptr(&self) -> *mut c_void {
+        self.ptr
+    }
+
+    /// Returns the apple-metal command buffer this `MPSCommandBuffer` wraps.
+    #[must_use]
+    pub const fn command_buffer(&self) -> &MetalCommandBuffer {
+        &self.command_buffer
+    }
+
     /// Wraps a constructor on `MPSCommandBuffer`.
     #[must_use]
     pub fn new_with_command_buffer(command_buffer: &MetalCommandBuffer) -> Option<Self> {
@@ -168,20 +197,17 @@ impl CommandBuffer {
         if ptr.is_null() {
             None
         } else {
-            Some(Self { ptr })
+            Some(Self {
+                ptr,
+                command_buffer: command_buffer.clone(),
+            })
         }
     }
 
     /// Wraps a constructor on `MPSCommandBuffer`.
     #[must_use]
     pub fn from_command_queue(command_queue: &CommandQueue) -> Option<Self> {
-        // SAFETY: This function returns a +1 retained command buffer or null.
-        let ptr = unsafe { ffi::mps_command_buffer_from_command_queue(command_queue.as_ptr()) };
-        if ptr.is_null() {
-            None
-        } else {
-            Some(Self { ptr })
-        }
+        Self::new_with_command_buffer(&command_queue.new_command_buffer()?)
     }
 
     /// Wraps the corresponding `MPSCommandBuffer` setter.
@@ -199,7 +225,9 @@ impl CommandBuffer {
     /// Wraps the corresponding `MPSCommandBuffer` method.
     pub fn prefetch_heap_for_workload_size(&self, size: usize) -> Result<()> {
         // SAFETY: The command buffer pointer is valid for the call.
-        let accepted = unsafe { ffi::mps_command_buffer_prefetch_heap(self.ptr, size) };
+        let accepted = encode(&self.command_buffer, |_| unsafe {
+            ffi::mps_command_buffer_prefetch_heap(self.ptr, size)
+        })?;
         accepted
             .then_some(())
             .ok_or(Error::Rejected("MPSCommandBuffer heap prefetch"))

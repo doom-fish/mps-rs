@@ -116,17 +116,15 @@ pub fn image_batch_synchronize(
     images: &[&Image],
     command_buffer: &MetalCommandBuffer,
 ) -> Result<()> {
-    crate::core::ensure_recording(command_buffer)?;
     let handles: Vec<_> = images.iter().map(|image| image.as_ptr()).collect();
     let handles_ptr = if handles.is_empty() {
         ptr::null()
     } else {
         handles.as_ptr()
     };
-    unsafe {
-        ffi::mps_image_batch_synchronize(handles_ptr, handles.len(), command_buffer.as_ptr());
-    }
-    Ok(())
+    crate::core::encode(command_buffer, |buffer| unsafe {
+        ffi::mps_image_batch_synchronize(handles_ptr, handles.len(), buffer);
+    })
 }
 
 #[must_use]

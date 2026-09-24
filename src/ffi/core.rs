@@ -27,7 +27,6 @@ extern "C" {
     pub fn mps_command_buffer_new_with_command_buffer(
         command_buffer_handle: *mut c_void,
     ) -> *mut c_void;
-    pub fn mps_command_buffer_from_command_queue(command_queue_handle: *mut c_void) -> *mut c_void;
     pub fn mps_command_buffer_set_predicate(
         command_buffer_handle: *mut c_void,
         predicate_handle: *mut c_void,

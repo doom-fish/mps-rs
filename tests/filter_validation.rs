@@ -1,6 +1,6 @@
 use apple_metal::{
-    pixel_format, storage_mode, texture_type, texture_usage, CommandBuffer, CommandQueue,
-    MetalDevice, MetalTexture, TextureDescriptor,
+    pixel_format, storage_mode, texture_type, texture_usage, CommandBuffer, CommandBufferError,
+    CommandQueue, MetalDevice, MetalTexture, TextureDescriptor,
 };
 use apple_mps::{
     feature_channel_format, hint_temporary_memory_high_water_mark, set_heap_cache_duration, Error,
@@ -391,13 +391,17 @@ fn committed_command_buffers_are_rejected() {
     let destination = texture(&device, pixel_format::RGBA8UNORM, 8, 8);
     assert!(matches!(
         blur.encode_texture(&done, &source, &destination),
-        Err(Error::NotRecording { .. })
+        Err(Error::CommandBuffer(
+            CommandBufferError::InvalidState { .. }
+        ))
     ));
     let add = ImageAdd::new(&device).expect("add");
     let other = texture(&device, pixel_format::RGBA8UNORM, 8, 8);
     assert!(matches!(
         add.encode_texture(&done, &source, &other, &destination),
-        Err(Error::NotRecording { .. })
+        Err(Error::CommandBuffer(
+            CommandBufferError::InvalidState { .. }
+        ))
     ));
     let histogram = ImageHistogram::new(
         &device,
@@ -414,23 +418,31 @@ fn committed_command_buffers_are_rejected() {
         .expect("bins");
     assert!(matches!(
         histogram.encode_texture(&done, &source, &bins, 0),
-        Err(Error::NotRecording { .. })
+        Err(Error::CommandBuffer(
+            CommandBufferError::InvalidState { .. }
+        ))
     ));
     assert!(matches!(
         hint_temporary_memory_high_water_mark(&done, 1 << 20),
-        Err(Error::NotRecording { .. })
+        Err(Error::CommandBuffer(
+            CommandBufferError::InvalidState { .. }
+        ))
     ));
     assert!(matches!(
         set_heap_cache_duration(&done, 1.0),
-        Err(Error::NotRecording { .. })
+        Err(Error::CommandBuffer(
+            CommandBufferError::InvalidState { .. }
+        ))
     ));
     assert!(State::temporary(&done).is_none());
     assert!(State::temporary_with_buffer_size(&done, 64).is_none());
     let wrapped = MpsCommandBuffer::new_with_command_buffer(&done).expect("MPS command buffer");
-    assert_eq!(
+    assert!(matches!(
         wrapped.prefetch_heap_for_workload_size(1 << 20),
-        Err(Error::Rejected("MPSCommandBuffer heap prefetch"))
-    );
+        Err(Error::CommandBuffer(
+            CommandBufferError::InvalidState { .. }
+        ))
+    ));
     let live = queue.new_command_buffer().expect("command buffer");
     hint_temporary_memory_high_water_mark(&live, 1 << 20).expect("hint");
     set_heap_cache_duration(&live, 1.0).expect("heap cache duration");

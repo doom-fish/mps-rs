@@ -1,4 +1,3 @@
-use crate::core::ensure_recording;
 use crate::error::Result;
 use crate::ffi;
 use apple_metal::{CommandBuffer as MetalCommandBuffer, MetalDevice};
@@ -90,9 +89,11 @@ impl State {
     /// Wraps a constructor on `MPSState`.
     #[must_use]
     pub fn temporary(command_buffer: &MetalCommandBuffer) -> Option<Self> {
-        ensure_recording(command_buffer).ok()?;
         // SAFETY: command_buffer pointer is valid for the call.
-        let ptr = unsafe { ffi::mps_state_temporary_new(command_buffer.as_ptr()) };
+        let ptr = crate::core::encode(command_buffer, |buffer| unsafe {
+            ffi::mps_state_temporary_new(buffer)
+        })
+        .ok()?;
         if ptr.is_null() {
             None
         } else {
@@ -106,10 +107,10 @@ impl State {
         command_buffer: &MetalCommandBuffer,
         buffer_size: usize,
     ) -> Option<Self> {
-        ensure_recording(command_buffer).ok()?;
-        let ptr = unsafe {
-            ffi::mps_state_temporary_new_with_buffer_size(command_buffer.as_ptr(), buffer_size)
-        };
+        let ptr = crate::core::encode(command_buffer, |buffer| unsafe {
+            ffi::mps_state_temporary_new_with_buffer_size(buffer, buffer_size)
+        })
+        .ok()?;
         if ptr.is_null() {
             None
         } else {
@@ -151,13 +152,10 @@ impl State {
         command_buffer: &MetalCommandBuffer,
         resource_list: &StateResourceList,
     ) -> Option<Self> {
-        ensure_recording(command_buffer).ok()?;
-        let ptr = unsafe {
-            ffi::mps_state_temporary_new_with_resource_list(
-                command_buffer.as_ptr(),
-                resource_list.as_ptr(),
-            )
-        };
+        let ptr = crate::core::encode(command_buffer, |buffer| unsafe {
+            ffi::mps_state_temporary_new_with_resource_list(buffer, resource_list.as_ptr())
+        })
+        .ok()?;
         if ptr.is_null() {
             None
         } else {
@@ -239,9 +237,9 @@ impl State {
 
     /// Wraps the corresponding `MPSState` method.
     pub fn synchronize_on_command_buffer(&self, command_buffer: &MetalCommandBuffer) -> Result<()> {
-        ensure_recording(command_buffer)?;
-        unsafe { ffi::mps_state_synchronize_on_command_buffer(self.ptr, command_buffer.as_ptr()) };
-        Ok(())
+        crate::core::encode(command_buffer, |buffer| unsafe {
+            ffi::mps_state_synchronize_on_command_buffer(self.ptr, buffer);
+        })
     }
 
     /// Wraps the corresponding `MPSState` method.
@@ -280,15 +278,13 @@ pub fn state_batch_synchronize(
     states: &[&State],
     command_buffer: &MetalCommandBuffer,
 ) -> Result<()> {
-    ensure_recording(command_buffer)?;
     let handles: Vec<_> = states.iter().map(|state| state.as_ptr()).collect();
     let handles_ptr = if handles.is_empty() {
         ptr::null()
     } else {
         handles.as_ptr()
     };
-    unsafe {
-        ffi::mps_state_batch_synchronize(handles_ptr, handles.len(), command_buffer.as_ptr());
-    };
-    Ok(())
+    crate::core::encode(command_buffer, |buffer| unsafe {
+        ffi::mps_state_batch_synchronize(handles_ptr, handles.len(), buffer);
+    })
 }

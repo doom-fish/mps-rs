@@ -365,20 +365,20 @@ impl NDArrayIdentity {
         source: &NDArray,
         dimension_sizes: &[usize],
     ) -> Option<NDArray> {
-        crate::core::ensure_recording(command_buffer).ok()?;
         if !reshape_is_valid(source, dimension_sizes, None) {
             return None;
         }
-        let ptr = unsafe {
+        let ptr = crate::core::encode(command_buffer, |buffer| unsafe {
             ffi::mps_ndarray_identity_reshape(
                 self.ptr,
-                command_buffer.as_ptr(),
+                buffer,
                 source.as_ptr(),
                 dimension_sizes.len(),
                 dimension_sizes.as_ptr(),
                 ptr::null_mut(),
             )
-        };
+        })
+        .ok()?;
         if ptr.is_null() {
             None
         } else {
@@ -394,23 +394,25 @@ impl NDArrayIdentity {
         dimension_sizes: &[usize],
         destination: &NDArray,
     ) -> bool {
-        if command_buffer.is_some_and(|buffer| crate::core::ensure_recording(buffer).is_err())
-            || !reshape_is_valid(source, dimension_sizes, Some(destination))
-        {
+        if !reshape_is_valid(source, dimension_sizes, Some(destination)) {
             return false;
         }
-        let command_buffer_ptr = command_buffer.map_or(ptr::null_mut(), MetalCommandBuffer::as_ptr);
-        let ptr = unsafe {
+        let reshape = |buffer: *mut c_void| unsafe {
             ffi::mps_ndarray_identity_reshape(
                 self.ptr,
-                command_buffer_ptr,
+                buffer,
                 source.as_ptr(),
                 dimension_sizes.len(),
                 dimension_sizes.as_ptr(),
                 destination.as_ptr(),
             )
         };
-        !ptr.is_null()
+        command_buffer
+            .map_or_else(
+                || Ok(reshape(ptr::null_mut())),
+                |command_buffer| crate::core::encode(command_buffer, reshape),
+            )
+            .is_ok_and(|ptr| !ptr.is_null())
     }
 }
 
@@ -488,7 +490,6 @@ impl NDArrayMatrixMultiplication {
         command_buffer: &MetalCommandBuffer,
         source_arrays: &[&NDArray],
     ) -> Option<NDArray> {
-        crate::core::ensure_recording(command_buffer).ok()?;
         validate_multiplication(self.source_count, source_arrays, None).ok()?;
         let handles: Vec<_> = source_arrays.iter().map(|array| array.as_ptr()).collect();
         let handles_ptr = if handles.is_empty() {
@@ -496,14 +497,15 @@ impl NDArrayMatrixMultiplication {
         } else {
             handles.as_ptr()
         };
-        let ptr = unsafe {
+        let ptr = crate::core::encode(command_buffer, |buffer| unsafe {
             ffi::mps_ndarray_matrix_multiplication_encode(
                 self.ptr,
-                command_buffer.as_ptr(),
+                buffer,
                 source_arrays.len(),
                 handles_ptr,
             )
-        };
+        })
+        .ok()?;
         if ptr.is_null() {
             None
         } else {
@@ -518,7 +520,6 @@ impl NDArrayMatrixMultiplication {
         source_arrays: &[&NDArray],
         destination: &NDArray,
     ) -> Result<()> {
-        crate::core::ensure_recording(command_buffer)?;
         validate_multiplication(self.source_count, source_arrays, Some(destination))?;
         let handles: Vec<_> = source_arrays.iter().map(|array| array.as_ptr()).collect();
         let handles_ptr = if handles.is_empty() {
@@ -526,16 +527,15 @@ impl NDArrayMatrixMultiplication {
         } else {
             handles.as_ptr()
         };
-        unsafe {
+        crate::core::encode(command_buffer, |buffer| unsafe {
             ffi::mps_ndarray_matrix_multiplication_encode_to_destination(
                 self.ptr,
-                command_buffer.as_ptr(),
+                buffer,
                 source_arrays.len(),
                 handles_ptr,
                 destination.as_ptr(),
             );
-        };
-        Ok(())
+        })
     }
 }
 
