@@ -93,6 +93,14 @@ See [`COVERAGE.md`](COVERAGE.md) for the family matrix and what the coverage aud
   apple-metal encoder is still open on it (`ActiveEncoder`), where MPS would abort the
   process. While MPS encodes, commits, enqueues and new encoders on the same command buffer
   fail with `ActiveEncoder` on every thread, so a concurrent commit can't land mid-encode.
+- Temporary `State`s follow MPS's read-count rules. Dropping one returns its storage
+  (read count 0). `set_read_count` refuses persistent states and raising a count that
+  reached zero, `state_batch_increment_read_count` refuses to take a count below zero
+  and leaves persistent states unchanged, and temporary states cannot be synchronized
+  with the CPU. The crate hands out no other temporary objects: NDArray kernel results
+  are regular arrays, temporary RNN recurrent outputs are refused, and `NNGraph::encode`
+  releases the temporary images it exports from intermediate nodes. The test suite runs
+  clean under the Metal validation layer (`MTL_DEBUG_LAYER=1`).
 - MPS kernels and descriptors are `Send` but not `Sync`: MPS allows a kernel to be used by
   one thread at a time. Data objects such as `Matrix`, `Vector`, `NDArray` and `Image`
   remain `Sync`.
@@ -108,6 +116,7 @@ See [`COVERAGE.md`](COVERAGE.md) for the family matrix and what the coverage aud
 ```bash
 cargo clippy --all-targets --all-features -- -D warnings
 cargo test --all-features
+MTL_DEBUG_LAYER=1 cargo test --all-features
 cargo run --example 01_blur_image
 cargo run --example 02_matrix_multiply
 cargo run --example 03_ndarray_identity
