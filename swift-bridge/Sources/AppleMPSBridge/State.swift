@@ -89,9 +89,26 @@ public func mps_state_read_count(_ handle: UnsafeMutableRawPointer?) -> Int {
 }
 
 @_cdecl("mps_state_set_read_count")
-public func mps_state_set_read_count(_ handle: UnsafeMutableRawPointer?, _ value: Int) {
-    guard let state: MPSState = mps_borrow(handle) else { return }
-    state.readCount = value
+public func mps_state_set_read_count(_ handle: UnsafeMutableRawPointer?, _ value: UInt) -> Bool {
+    guard let state: MPSState = mps_borrow(handle),
+          let count = Int(exactly: value),
+          state.isTemporary,
+          state.readCount > 0 || count == 0
+    else {
+        return false
+    }
+    state.readCount = count
+    return true
+}
+
+@_cdecl("mps_state_release")
+public func mps_state_release(_ handle: UnsafeMutableRawPointer?) {
+    guard let handle else { return }
+    let state: MPSState = Unmanaged<MPSState>.fromOpaque(handle).takeUnretainedValue()
+    if state.isTemporary && state.readCount > 0 {
+        state.readCount = 0
+    }
+    Unmanaged<MPSState>.fromOpaque(handle).release()
 }
 
 @_cdecl("mps_state_is_temporary")
@@ -145,13 +162,15 @@ public func mps_state_resource_type_at_index(_ handle: UnsafeMutableRawPointer?,
 public func mps_state_synchronize_on_command_buffer(
     _ handle: UnsafeMutableRawPointer?,
     _ commandBufferHandle: UnsafeMutableRawPointer?
-) {
+) -> Bool {
     guard let state: MPSState = mps_borrow(handle),
-          let commandBuffer: MTLCommandBuffer = mps_borrow(commandBufferHandle)
+          let commandBuffer: MTLCommandBuffer = mps_borrow(commandBufferHandle),
+          !state.isTemporary
     else {
-        return
+        return false
     }
     state.synchronize(on: commandBuffer)
+    return true
 }
 
 @_cdecl("mps_state_resource_size")
@@ -166,7 +185,15 @@ public func mps_state_batch_increment_read_count(
     _ count: Int,
     _ amount: Int
 ) -> Int {
-    guard let states: [MPSState] = mps_borrow_array(handles, count: count) else { return 0 }
+    guard let states: [MPSState] = mps_borrow_array(handles, count: count) else { return -1 }
+    var seen = Set<ObjectIdentifier>()
+    for state in states where seen.insert(ObjectIdentifier(state)).inserted {
+        guard state.isTemporary else { continue }
+        let (adjusted, overflow) = state.readCount.addingReportingOverflow(amount)
+        if overflow || adjusted < 0 {
+            return -1
+        }
+    }
     return MPSStateBatchIncrementReadCount(states, amount)
 }
 
@@ -175,14 +202,16 @@ public func mps_state_batch_synchronize(
     _ handles: UnsafePointer<UnsafeMutableRawPointer?>?,
     _ count: Int,
     _ commandBufferHandle: UnsafeMutableRawPointer?
-) {
+) -> Bool {
     guard let states: [MPSState] = mps_borrow_array(handles, count: count),
-          let commandBuffer: MTLCommandBuffer = mps_borrow(commandBufferHandle)
+          let commandBuffer: MTLCommandBuffer = mps_borrow(commandBufferHandle),
+          !states.contains(where: { $0.isTemporary })
     else {
-        return
+        return false
     }
-    if states.isEmpty { return }
+    if states.isEmpty { return true }
     MPSStateBatchSynchronize(states, commandBuffer)
+    return true
 }
 
 @_cdecl("mps_state_batch_resource_size")

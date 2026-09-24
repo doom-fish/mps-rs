@@ -241,9 +241,18 @@ public func mps_nn_graph_encode(
         _ = image.texture
     }
 
-    guard let result = graph.encode(to: commandBuffer, sourceImages: sourceImages) else {
-        return nil
+    let intermediateImages = NSMutableArray()
+    let result = graph.encode(
+        to: commandBuffer,
+        sourceImages: sourceImages,
+        sourceStates: nil,
+        intermediateImages: intermediateImages,
+        destinationStates: nil
+    )
+    for case let image as MPSTemporaryImage in intermediateImages where image !== result {
+        image.readCount = 0
     }
+    guard let result else { return nil }
     return mps_retain(result)
 }
 

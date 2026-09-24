@@ -48,7 +48,8 @@ fn main() {
     let temporary_b =
         State::temporary_with_buffer_size(&command_buffer, 64).expect("temporary state b");
     let unique_count =
-        state_batch_increment_read_count(&[&temporary_a, &temporary_a, &temporary_b], 1);
+        state_batch_increment_read_count(&[&temporary_a, &temporary_a, &temporary_b], 1)
+            .expect("increment read counts");
     assert_eq!(unique_count, 2);
     assert_eq!(
         temporary_a.resource_type_at_index(0),

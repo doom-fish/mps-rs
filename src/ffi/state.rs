@@ -24,7 +24,8 @@ extern "C" {
 
     pub fn mps_state_resource_count(handle: *mut c_void) -> usize;
     pub fn mps_state_read_count(handle: *mut c_void) -> usize;
-    pub fn mps_state_set_read_count(handle: *mut c_void, value: usize);
+    pub fn mps_state_set_read_count(handle: *mut c_void, value: usize) -> bool;
+    pub fn mps_state_release(handle: *mut c_void);
     pub fn mps_state_is_temporary(handle: *mut c_void) -> bool;
     pub fn mps_state_buffer_size_at_index(handle: *mut c_void, index: usize) -> usize;
     pub fn mps_state_texture_info(
@@ -42,18 +43,18 @@ extern "C" {
     pub fn mps_state_synchronize_on_command_buffer(
         handle: *mut c_void,
         command_buffer_handle: *mut c_void,
-    );
+    ) -> bool;
     pub fn mps_state_resource_size(handle: *mut c_void) -> usize;
 
     pub fn mps_state_batch_increment_read_count(
         handles: *const *mut c_void,
         count: usize,
         amount: isize,
-    ) -> usize;
+    ) -> isize;
     pub fn mps_state_batch_synchronize(
         handles: *const *mut c_void,
         count: usize,
         command_buffer_handle: *mut c_void,
-    );
+    ) -> bool;
     pub fn mps_state_batch_resource_size(handles: *const *mut c_void, count: usize) -> usize;
 }

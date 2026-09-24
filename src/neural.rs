@@ -1786,10 +1786,16 @@ impl RnnImageInferenceLayer {
     }
 
     /// Wraps the corresponding `MPSRNNImageInferenceLayer` setter.
-    pub fn set_recurrent_output_is_temporary(&self, value: bool) {
-        unsafe {
-            ffi::mps_rnn_image_inference_layer_set_recurrent_output_is_temporary(self.ptr, value);
+    pub fn set_recurrent_output_is_temporary(&self, value: bool) -> Result<()> {
+        if value {
+            return Err(Error::Unsupported(
+                "temporary recurrent states hold temporary images whose read counts this crate cannot manage",
+            ));
         }
+        unsafe {
+            ffi::mps_rnn_image_inference_layer_set_recurrent_output_is_temporary(self.ptr, false);
+        }
+        Ok(())
     }
 
     /// Wraps the corresponding `MPSRNNImageInferenceLayer` method.

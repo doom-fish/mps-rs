@@ -269,7 +269,9 @@ public func mps_ndarray_matrix_multiplication_new(
 ) -> UnsafeMutableRawPointer? {
     guard let device: MTLDevice = mps_borrow(deviceHandle) else { return nil }
     if #available(macOS 10.15, *) {
-        return mps_retain(MPSNDArrayMatrixMultiplication(device: device, sourceCount: sourceCount))
+        let kernel = MPSNDArrayMatrixMultiplication(device: device, sourceCount: sourceCount)
+        kernel.destinationArrayAllocator = MPSNDArray.defaultAllocator()
+        return mps_retain(kernel)
     }
     return nil
 }

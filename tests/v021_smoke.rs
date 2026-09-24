@@ -139,7 +139,8 @@ fn state_and_optimizer_smoke() {
         state_resource_type::BUFFER
     );
     let unique_count =
-        state_batch_increment_read_count(&[&temporary_a, &temporary_a, &temporary_b], 2);
+        state_batch_increment_read_count(&[&temporary_a, &temporary_a, &temporary_b], 2)
+            .expect("increment read counts");
     assert_eq!(unique_count, 2);
     assert_eq!(temporary_a.read_count(), 3);
     assert_eq!(temporary_b.read_count(), 3);
@@ -400,7 +401,9 @@ fn convolution_and_rnn_smoke() {
     let stacked_layer =
         RnnImageInferenceLayer::new_stack(&device, &[&base_descriptor]).expect("stacked rnn layer");
     assert_eq!(stacked_layer.number_of_layers(), 1);
-    layer.set_recurrent_output_is_temporary(false);
+    layer
+        .set_recurrent_output_is_temporary(false)
+        .expect("persistent recurrent output");
     layer.set_store_all_intermediate_states(true);
     layer.set_bidirectional_combine_mode(rnn_bidirectional_combine_mode::ADD);
     assert_eq!(

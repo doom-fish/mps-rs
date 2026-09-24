@@ -1,4 +1,4 @@
-use crate::error::Result;
+use crate::error::{Error, Result};
 use crate::ffi;
 use apple_metal::{CommandBuffer as MetalCommandBuffer, MetalDevice};
 use core::ffi::c_void;
@@ -35,6 +35,9 @@ pub struct StateTextureInfo {
 
 macro_rules! opaque_handle {
     ($name:ident, $doc:expr) => {
+        opaque_handle!($name, $doc, ffi::mps_object_release);
+    };
+    ($name:ident, $doc:expr, $release:path) => {
         #[doc = $doc]
         pub struct $name {
             ptr: *mut c_void,
@@ -47,7 +50,7 @@ macro_rules! opaque_handle {
             fn drop(&mut self) {
                 if !self.ptr.is_null() {
                     // SAFETY: `ptr` is a +1 retained MPS object owned by this wrapper.
-                    unsafe { ffi::mps_object_release(self.ptr) };
+                    unsafe { $release(self.ptr) };
                     self.ptr = ptr::null_mut();
                 }
             }
@@ -84,7 +87,7 @@ impl StateResourceList {
     }
 }
 
-opaque_handle!(State, "Wraps `MPSState`.");
+opaque_handle!(State, "Wraps `MPSState`.", ffi::mps_state_release);
 impl State {
     /// Wraps a constructor on `MPSState`.
     #[must_use]
@@ -178,9 +181,23 @@ impl State {
     }
 
     /// Wraps the corresponding `MPSState` setter.
-    pub fn set_read_count(&self, count: usize) {
+    pub fn set_read_count(&self, count: usize) -> Result<()> {
+        if !self.is_temporary() {
+            return Err(Error::InvalidArgument(
+                "only temporary states have a read count",
+            ));
+        }
+        if self.read_count() == 0 && count > 0 {
+            return Err(Error::InvalidArgument(
+                "a temporary state whose read count reached zero has returned its storage to MPS",
+            ));
+        }
+        isize::try_from(count).map_err(|_| Error::Overflow)?;
         // SAFETY: self.ptr is a valid State object.
-        unsafe { ffi::mps_state_set_read_count(self.ptr, count) };
+        let accepted = unsafe { ffi::mps_state_set_read_count(self.ptr, count) };
+        accepted
+            .then_some(())
+            .ok_or(Error::Rejected("MPSState readCount"))
     }
 
     /// Wraps the corresponding `MPSState` method.
@@ -237,9 +254,15 @@ impl State {
 
     /// Wraps the corresponding `MPSState` method.
     pub fn synchronize_on_command_buffer(&self, command_buffer: &MetalCommandBuffer) -> Result<()> {
-        crate::core::encode(command_buffer, |buffer| unsafe {
-            ffi::mps_state_synchronize_on_command_buffer(self.ptr, buffer);
-        })
+        if self.is_temporary() {
+            return Err(Error::InvalidArgument(TEMPORARY_SYNCHRONIZE));
+        }
+        let accepted = crate::core::encode(command_buffer, |buffer| unsafe {
+            ffi::mps_state_synchronize_on_command_buffer(self.ptr, buffer)
+        })?;
+        accepted
+            .then_some(())
+            .ok_or(Error::Rejected("MPSState synchronizeOnCommandBuffer"))
     }
 
     /// Wraps the corresponding `MPSState` method.
@@ -249,16 +272,22 @@ impl State {
     }
 }
 
+const TEMPORARY_SYNCHRONIZE: &str =
+    "temporary states are GPU-private and cannot be synchronized with the CPU";
+
 /// Calls `MPSStateBatchIncrementReadCount` for the provided `MPSState` values.
-#[must_use]
-pub fn state_batch_increment_read_count(states: &[&State], amount: isize) -> usize {
+pub fn state_batch_increment_read_count(states: &[&State], amount: isize) -> Result<usize> {
     let handles: Vec<_> = states.iter().map(|state| state.as_ptr()).collect();
     let handles_ptr = if handles.is_empty() {
         ptr::null()
     } else {
         handles.as_ptr()
     };
-    unsafe { ffi::mps_state_batch_increment_read_count(handles_ptr, handles.len(), amount) }
+    let unique =
+        unsafe { ffi::mps_state_batch_increment_read_count(handles_ptr, handles.len(), amount) };
+    usize::try_from(unique).map_err(|_| {
+        Error::InvalidArgument("a temporary state's read count would drop below zero or overflow")
+    })
 }
 
 /// Calls `MPSStateBatchResourceSize` for the provided `MPSState` values.
@@ -278,13 +307,19 @@ pub fn state_batch_synchronize(
     states: &[&State],
     command_buffer: &MetalCommandBuffer,
 ) -> Result<()> {
+    if states.iter().any(|state| state.is_temporary()) {
+        return Err(Error::InvalidArgument(TEMPORARY_SYNCHRONIZE));
+    }
     let handles: Vec<_> = states.iter().map(|state| state.as_ptr()).collect();
     let handles_ptr = if handles.is_empty() {
         ptr::null()
     } else {
         handles.as_ptr()
     };
-    crate::core::encode(command_buffer, |buffer| unsafe {
-        ffi::mps_state_batch_synchronize(handles_ptr, handles.len(), buffer);
-    })
+    let accepted = crate::core::encode(command_buffer, |buffer| unsafe {
+        ffi::mps_state_batch_synchronize(handles_ptr, handles.len(), buffer)
+    })?;
+    accepted
+        .then_some(())
+        .ok_or(Error::Rejected("MPSStateBatchSynchronize"))
 }

@@ -89,6 +89,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `CommandBuffer::encode_foreign`, which refuses a buffer that no longer records
   or has an open encoder and holds off commits, enqueues and new encoders until
   MPS returns.
+- Dropping a temporary `State` whose read count was above zero made the Metal
+  validation layer abort the process ("was released before its readCount was
+  zero"); `tests/v021_smoke.rs` hit this under `MTL_DEBUG_LAYER=1`. Dropping a
+  `State` now sets a temporary state's read count to zero first, which returns
+  its storage to MPS as Apple documents.
+- MPS aborted, even without the validation layer, when `State::set_read_count`
+  was called on a persistent state or raised a count that had reached zero, when
+  `state_batch_increment_read_count` would take a count below zero, and when
+  `synchronize_on_command_buffer` or `state_batch_synchronize` met a temporary
+  state, whose storage is GPU-private. These now return `Error::InvalidArgument`.
+- `NDArrayMatrixMultiplication::encode` returned an `MPSTemporaryNDArray` from
+  MPS's default destination allocator. Reading the result twice tripped the
+  validation layer, and its contents became undefined once its read count reached
+  zero. The kernel now allocates regular `MPSNDArray` results.
+- Temporary recurrent outputs of `RnnImageInferenceLayer` hold temporary images
+  with their own read counts, and the validation layer aborted on every use, even
+  after the state's count was zeroed. `set_recurrent_output_is_temporary(true)`
+  now returns `Error::Unsupported`.
+- `NNGraph::encode` left every intermediate image exported with
+  `NNImageNode::set_export_from_graph(true)` as an unreachable `MPSTemporaryImage`
+  with read count 1, so the validation layer aborted when MPS released it. The
+  encode now collects the exported images and sets their read counts to zero.
 - COVERAGE.md and COVERAGE_AUDIT*.md claimed 479/479 symbols; 353 of them are
   method-less opaque handles and 29 raw-value newtypes. They now report 97
   verified symbols and list the rest as gaps. The README states the platform
@@ -132,6 +154,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `UnsupportedPixelFormat`. `CommandBuffer` carries the
   `apple_metal::CommandBufferError` (`InvalidState` for a buffer that no longer
   records, `ActiveEncoder` for an open encoder) and is the error's `source()`.
+- **BREAKING:** `State::set_read_count` returns `Result<()>`,
+  `state_batch_increment_read_count` returns `Result<usize>`, and
+  `RnnImageInferenceLayer::set_recurrent_output_is_temporary` returns `Result<()>`
+  and refuses `true`. `State::synchronize_on_command_buffer` and
+  `state_batch_synchronize` refuse temporary states. `NDArrayMatrixMultiplication::encode`
+  returns regular arrays that keep their storage until dropped, instead of temporary
+  arrays recycled within the command buffer. The raw `ffi::mps_state_set_read_count`,
+  `mps_state_synchronize_on_command_buffer` and `mps_state_batch_synchronize` return
+  `bool`, `mps_state_batch_increment_read_count` returns `isize` (-1 when refused),
+  and `ffi::mps_state_release` is new.
 - `NDArrayMatrixMultiplication::new` accepts 2 or 3 sources only, and the
   `ffi` image-transfer, histogram, filter-encode, heap-hint and prefetch
   functions changed signature; `ffi::mps_command_buffer_from_command_queue` is
