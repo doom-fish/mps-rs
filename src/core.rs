@@ -1,6 +1,8 @@
+use crate::error::{Error, Result};
 use crate::ffi;
 use apple_metal::{
-    CommandBuffer as MetalCommandBuffer, CommandQueue, ManuallyDropDevice, MetalBuffer, MetalDevice,
+    command_buffer_status, CommandBuffer as MetalCommandBuffer, CommandQueue, ManuallyDropDevice,
+    MetalBuffer, MetalDevice,
 };
 use core::ffi::c_void;
 use core::ptr;
@@ -83,19 +85,38 @@ pub fn preferred_device(options: usize) -> Option<PreferredDevice> {
     }
 }
 
+pub(crate) fn ensure_recording(command_buffer: &MetalCommandBuffer) -> Result<()> {
+    match command_buffer.status() {
+        command_buffer_status::NOT_ENQUEUED | command_buffer_status::ENQUEUED => Ok(()),
+        status => Err(Error::NotRecording { status }),
+    }
+}
+
 /// Calls `MPSHintTemporaryMemoryHighWaterMark` on the wrapped command buffer.
-pub fn hint_temporary_memory_high_water_mark(command_buffer: &MetalCommandBuffer, bytes: usize) {
+pub fn hint_temporary_memory_high_water_mark(
+    command_buffer: &MetalCommandBuffer,
+    bytes: usize,
+) -> Result<()> {
+    ensure_recording(command_buffer)?;
     // SAFETY: The command buffer pointer is valid for the call.
-    unsafe { ffi::mps_hint_temporary_memory_high_water_mark(command_buffer.as_ptr(), bytes) };
+    let accepted =
+        unsafe { ffi::mps_hint_temporary_memory_high_water_mark(command_buffer.as_ptr(), bytes) };
+    accepted
+        .then_some(())
+        .ok_or(Error::Rejected("MPSHintTemporaryMemoryHighWaterMark"))
 }
 
 #[doc(hidden)]
 pub use crate::generated::core::*;
 
 /// Calls `MPSSetHeapCacheDuration` on the wrapped command buffer.
-pub fn set_heap_cache_duration(command_buffer: &MetalCommandBuffer, seconds: f64) {
+pub fn set_heap_cache_duration(command_buffer: &MetalCommandBuffer, seconds: f64) -> Result<()> {
+    ensure_recording(command_buffer)?;
     // SAFETY: The command buffer pointer is valid for the call.
-    unsafe { ffi::mps_set_heap_cache_duration(command_buffer.as_ptr(), seconds) };
+    let accepted = unsafe { ffi::mps_set_heap_cache_duration(command_buffer.as_ptr(), seconds) };
+    accepted
+        .then_some(())
+        .ok_or(Error::Rejected("MPSSetHeapCacheDuration"))
 }
 
 opaque_handle!(Predicate, "Wraps `MPSPredicate`.", sync);
@@ -176,14 +197,11 @@ impl CommandBuffer {
     }
 
     /// Wraps the corresponding `MPSCommandBuffer` method.
-    pub fn prefetch_heap_for_workload_size(&self, size: usize) {
+    pub fn prefetch_heap_for_workload_size(&self, size: usize) -> Result<()> {
         // SAFETY: The command buffer pointer is valid for the call.
-        unsafe { ffi::mps_command_buffer_prefetch_heap(self.ptr, size) };
-    }
-
-    /// Wraps the corresponding `MPSCommandBuffer` method.
-    pub fn commit_and_continue(&self) {
-        // SAFETY: The command buffer pointer is valid for the call.
-        unsafe { ffi::mps_command_buffer_commit_and_continue(self.ptr) };
+        let accepted = unsafe { ffi::mps_command_buffer_prefetch_heap(self.ptr, size) };
+        accepted
+            .then_some(())
+            .ok_or(Error::Rejected("MPSCommandBuffer heap prefetch"))
     }
 }

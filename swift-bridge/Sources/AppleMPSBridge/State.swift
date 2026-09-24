@@ -19,7 +19,11 @@ public func mps_state_resource_list_append_buffer(
 public func mps_state_temporary_new(
     _ commandBufferHandle: UnsafeMutableRawPointer?
 ) -> UnsafeMutableRawPointer? {
-    guard let commandBuffer: MTLCommandBuffer = mps_borrow(commandBufferHandle) else { return nil }
+    guard let commandBuffer: MTLCommandBuffer = mps_borrow(commandBufferHandle),
+          mps_is_recording(commandBuffer)
+    else {
+        return nil
+    }
     return mps_retain(MPSState.temporaryState(with: commandBuffer))
 }
 
@@ -28,7 +32,11 @@ public func mps_state_temporary_new_with_buffer_size(
     _ commandBufferHandle: UnsafeMutableRawPointer?,
     _ bufferSize: Int
 ) -> UnsafeMutableRawPointer? {
-    guard let commandBuffer: MTLCommandBuffer = mps_borrow(commandBufferHandle) else { return nil }
+    guard let commandBuffer: MTLCommandBuffer = mps_borrow(commandBufferHandle),
+          mps_is_recording(commandBuffer)
+    else {
+        return nil
+    }
     return mps_retain(MPSState.temporaryState(with: commandBuffer, bufferSize: bufferSize))
 }
 
@@ -60,6 +68,7 @@ public func mps_state_temporary_new_with_resource_list(
     _ resourceListHandle: UnsafeMutableRawPointer?
 ) -> UnsafeMutableRawPointer? {
     guard let commandBuffer: MTLCommandBuffer = mps_borrow(commandBufferHandle),
+          mps_is_recording(commandBuffer),
           let resourceList: MPSStateResourceList = mps_borrow(resourceListHandle)
     else {
         return nil

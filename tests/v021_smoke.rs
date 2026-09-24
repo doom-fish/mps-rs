@@ -163,7 +163,8 @@ fn state_and_optimizer_smoke() {
     );
     let _ = persistent_state.resource_size();
     let sync_command_buffer = queue.new_command_buffer().expect("sync command buffer");
-    state_batch_synchronize(&[&persistent_state], &sync_command_buffer);
+    state_batch_synchronize(&[&persistent_state], &sync_command_buffer)
+        .expect("state batch synchronize");
     sync_command_buffer.commit().expect("commit");
     sync_command_buffer
         .wait_until_completed()

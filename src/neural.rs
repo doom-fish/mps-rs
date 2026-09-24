@@ -431,6 +431,7 @@ impl NNGraph {
         command_buffer: &CommandBuffer,
         source_images: &[&Image],
     ) -> Option<Image> {
+        crate::core::ensure_recording(command_buffer).ok()?;
         if source_images.len() != self.source_image_count() {
             return None;
         }
@@ -878,6 +879,7 @@ impl CnnConvolution {
         source: &Image,
         destination: &Image,
     ) -> Result<()> {
+        crate::core::ensure_recording(command_buffer)?;
         for (field, image, needed) in [
             (
                 "source feature channels",
@@ -1195,6 +1197,7 @@ impl NNOptimizerStochasticGradientDescent {
         input_momentum_vector: Option<&Vector>,
         result_values_vector: &Vector,
     ) -> Result<()> {
+        crate::core::ensure_recording(command_buffer)?;
         ensure_optimizer_vectors(&[
             Some(input_gradient_vector),
             Some(input_values_vector),
@@ -1224,6 +1227,7 @@ impl NNOptimizerStochasticGradientDescent {
         input_momentum_matrix: Option<&Matrix>,
         result_values_matrix: &Matrix,
     ) -> Result<()> {
+        crate::core::ensure_recording(command_buffer)?;
         ensure_optimizer_matrices(&[
             Some(input_gradient_matrix),
             Some(input_values_matrix),
@@ -1309,6 +1313,7 @@ impl NNOptimizerRmsProp {
         input_sum_of_squares_vector: &Vector,
         result_values_vector: &Vector,
     ) -> Result<()> {
+        crate::core::ensure_recording(command_buffer)?;
         ensure_optimizer_vectors(&[
             Some(input_gradient_vector),
             Some(input_values_vector),
@@ -1337,6 +1342,7 @@ impl NNOptimizerRmsProp {
         input_sum_of_squares_matrix: &Matrix,
         result_values_matrix: &Matrix,
     ) -> Result<()> {
+        crate::core::ensure_recording(command_buffer)?;
         ensure_optimizer_matrices(&[
             Some(input_gradient_matrix),
             Some(input_values_matrix),
@@ -1443,6 +1449,7 @@ impl NNOptimizerAdam {
         input_velocity_vector: &Vector,
         result_values_vector: &Vector,
     ) -> Result<()> {
+        crate::core::ensure_recording(command_buffer)?;
         ensure_optimizer_vectors(&[
             Some(input_gradient_vector),
             Some(input_values_vector),
@@ -1474,6 +1481,7 @@ impl NNOptimizerAdam {
         input_velocity_matrix: &Matrix,
         result_values_matrix: &Matrix,
     ) -> Result<()> {
+        crate::core::ensure_recording(command_buffer)?;
         ensure_optimizer_matrices(&[
             Some(input_gradient_matrix),
             Some(input_values_matrix),
@@ -1507,6 +1515,7 @@ impl NNOptimizerAdam {
         maximum_velocity_vector: Option<&Vector>,
         result_values_vector: &Vector,
     ) -> Result<()> {
+        crate::core::ensure_recording(command_buffer)?;
         ensure_optimizer_vectors(&[
             Some(input_gradient_vector),
             Some(input_values_vector),
@@ -1543,6 +1552,7 @@ impl NNOptimizerAdam {
         maximum_velocity_matrix: Option<&Matrix>,
         result_values_matrix: &Matrix,
     ) -> Result<()> {
+        crate::core::ensure_recording(command_buffer)?;
         ensure_optimizer_matrices(&[
             Some(input_gradient_matrix),
             Some(input_values_matrix),
@@ -1831,6 +1841,7 @@ impl RnnImageInferenceLayer {
         destination_images: &[&Image],
         recurrent_input_state: Option<&RnnRecurrentImageState>,
     ) -> Option<RnnRecurrentImageState> {
+        crate::core::ensure_recording(command_buffer).ok()?;
         if source_images.len() != destination_images.len() {
             return None;
         }

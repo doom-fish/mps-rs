@@ -30,6 +30,13 @@ pub enum Error {
     Overflow,
     Unsupported(&'static str),
     Rejected(&'static str),
+    NotRecording {
+        status: usize,
+    },
+    UnsupportedPixelFormat {
+        operand: &'static str,
+        pixel_format: usize,
+    },
 }
 
 /// Convenient result alias used throughout the crate.
@@ -67,6 +74,17 @@ impl fmt::Display for Error {
             Self::Rejected(operation) => {
                 write!(f, "Metal Performance Shaders rejected {operation}")
             }
+            Self::NotRecording { status } => write!(
+                f,
+                "the command buffer no longer accepts commands (MTLCommandBufferStatus {status})"
+            ),
+            Self::UnsupportedPixelFormat {
+                operand,
+                pixel_format,
+            } => write!(
+                f,
+                "{operand} pixel format {pixel_format} is not supported by this kernel"
+            ),
         }
     }
 }

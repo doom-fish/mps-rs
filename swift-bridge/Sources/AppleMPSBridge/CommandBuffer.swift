@@ -71,15 +71,12 @@ public func mps_command_buffer_clear_predicate(_ commandBufferHandle: UnsafeMuta
 public func mps_command_buffer_prefetch_heap(
     _ commandBufferHandle: UnsafeMutableRawPointer?,
     _ size: Int
-) {
-    guard let commandBuffer: MPSCommandBuffer = mps_borrow(commandBufferHandle) else { return }
+) -> Bool {
+    guard let commandBuffer: MPSCommandBuffer = mps_borrow(commandBufferHandle),
+          mps_is_recording(commandBuffer.commandBuffer)
+    else {
+        return false
+    }
     commandBuffer.prefetchHeap(forWorkloadSize: size)
-}
-
-@_cdecl("mps_command_buffer_commit_and_continue")
-public func mps_command_buffer_commit_and_continue(
-    _ commandBufferHandle: UnsafeMutableRawPointer?
-) {
-    guard let commandBuffer: MPSCommandBuffer = mps_borrow(commandBufferHandle) else { return }
-    commandBuffer.commitAndContinue()
+    return true
 }

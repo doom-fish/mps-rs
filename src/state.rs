@@ -1,3 +1,5 @@
+use crate::core::ensure_recording;
+use crate::error::Result;
 use crate::ffi;
 use apple_metal::{CommandBuffer as MetalCommandBuffer, MetalDevice};
 use core::ffi::c_void;
@@ -88,6 +90,7 @@ impl State {
     /// Wraps a constructor on `MPSState`.
     #[must_use]
     pub fn temporary(command_buffer: &MetalCommandBuffer) -> Option<Self> {
+        ensure_recording(command_buffer).ok()?;
         // SAFETY: command_buffer pointer is valid for the call.
         let ptr = unsafe { ffi::mps_state_temporary_new(command_buffer.as_ptr()) };
         if ptr.is_null() {
@@ -103,6 +106,7 @@ impl State {
         command_buffer: &MetalCommandBuffer,
         buffer_size: usize,
     ) -> Option<Self> {
+        ensure_recording(command_buffer).ok()?;
         let ptr = unsafe {
             ffi::mps_state_temporary_new_with_buffer_size(command_buffer.as_ptr(), buffer_size)
         };
@@ -147,6 +151,7 @@ impl State {
         command_buffer: &MetalCommandBuffer,
         resource_list: &StateResourceList,
     ) -> Option<Self> {
+        ensure_recording(command_buffer).ok()?;
         let ptr = unsafe {
             ffi::mps_state_temporary_new_with_resource_list(
                 command_buffer.as_ptr(),
@@ -233,8 +238,10 @@ impl State {
     }
 
     /// Wraps the corresponding `MPSState` method.
-    pub fn synchronize_on_command_buffer(&self, command_buffer: &MetalCommandBuffer) {
+    pub fn synchronize_on_command_buffer(&self, command_buffer: &MetalCommandBuffer) -> Result<()> {
+        ensure_recording(command_buffer)?;
         unsafe { ffi::mps_state_synchronize_on_command_buffer(self.ptr, command_buffer.as_ptr()) };
+        Ok(())
     }
 
     /// Wraps the corresponding `MPSState` method.
@@ -269,7 +276,11 @@ pub fn state_batch_resource_size(states: &[&State]) -> usize {
 }
 
 /// Calls `MPSStateBatchSynchronize` for the provided `MPSState` values.
-pub fn state_batch_synchronize(states: &[&State], command_buffer: &MetalCommandBuffer) {
+pub fn state_batch_synchronize(
+    states: &[&State],
+    command_buffer: &MetalCommandBuffer,
+) -> Result<()> {
+    ensure_recording(command_buffer)?;
     let handles: Vec<_> = states.iter().map(|state| state.as_ptr()).collect();
     let handles_ptr = if handles.is_empty() {
         ptr::null()
@@ -279,4 +290,5 @@ pub fn state_batch_synchronize(states: &[&State], command_buffer: &MetalCommandB
     unsafe {
         ffi::mps_state_batch_synchronize(handles_ptr, handles.len(), command_buffer.as_ptr());
     };
+    Ok(())
 }

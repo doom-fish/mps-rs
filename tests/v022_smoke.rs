@@ -405,7 +405,8 @@ fn exhaustive_surface_types_compile() {
     let _ = apple_mps::image::get_image_type as fn(&Image) -> apple_mps::image::ImageType;
     let _ = apple_mps::image::image_batch_increment_read_count as fn(&[&Image], isize) -> usize;
     let _ = apple_mps::image::image_batch_resource_size as fn(&[&Image]) -> usize;
-    let _ = apple_mps::image::image_batch_synchronize as fn(&[&Image], &apple_metal::CommandBuffer);
+    let _ = apple_mps::image::image_batch_synchronize
+        as fn(&[&Image], &apple_metal::CommandBuffer) -> apple_mps::Result<()>;
     let _ = apple_mps::image::image_batch_iterate::<fn(&Image, usize) -> isize>;
 }
 
@@ -427,7 +428,8 @@ fn image_batch_helpers_smoke() {
     let _ = apple_mps::image::image_batch_increment_read_count(&[&image, &image], 1);
     assert!(apple_mps::image::image_batch_resource_size(&[&image, &image]) > 0);
     let command_buffer = queue.new_command_buffer().expect("command buffer");
-    apple_mps::image::image_batch_synchronize(&[&image, &image], &command_buffer);
+    apple_mps::image::image_batch_synchronize(&[&image, &image], &command_buffer)
+        .expect("image batch synchronize");
     command_buffer.commit().expect("commit");
     command_buffer
         .wait_until_completed()

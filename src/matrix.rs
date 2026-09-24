@@ -570,6 +570,7 @@ impl MatrixMultiplication {
         right: &Matrix,
         result: &Matrix,
     ) -> Result<()> {
+        crate::core::ensure_recording(command_buffer)?;
         let descriptor = self.descriptor;
         let (m, n, k) = (
             descriptor.result_rows,

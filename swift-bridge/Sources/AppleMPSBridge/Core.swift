@@ -128,20 +128,35 @@ public func mps_get_preferred_device(_ optionsRaw: UInt) -> UnsafeMutableRawPoin
     return mps_retain(device)
 }
 
+@inline(__always)
+func mps_is_recording(_ commandBuffer: MTLCommandBuffer) -> Bool {
+    commandBuffer.status == .notEnqueued || commandBuffer.status == .enqueued
+}
+
 @_cdecl("mps_hint_temporary_memory_high_water_mark")
 public func mps_hint_temporary_memory_high_water_mark(
     _ commandBufferHandle: UnsafeMutableRawPointer?,
     _ bytes: Int
-) {
-    guard let commandBuffer: MTLCommandBuffer = mps_borrow(commandBufferHandle) else { return }
+) -> Bool {
+    guard let commandBuffer: MTLCommandBuffer = mps_borrow(commandBufferHandle),
+          mps_is_recording(commandBuffer)
+    else {
+        return false
+    }
     MPSHintTemporaryMemoryHighWaterMark(commandBuffer, bytes)
+    return true
 }
 
 @_cdecl("mps_set_heap_cache_duration")
 public func mps_set_heap_cache_duration(
     _ commandBufferHandle: UnsafeMutableRawPointer?,
     _ seconds: Double
-) {
-    guard let commandBuffer: MTLCommandBuffer = mps_borrow(commandBufferHandle) else { return }
+) -> Bool {
+    guard let commandBuffer: MTLCommandBuffer = mps_borrow(commandBufferHandle),
+          mps_is_recording(commandBuffer)
+    else {
+        return false
+    }
     MPSSetHeapCacheDuration(commandBuffer, seconds)
+    return true
 }

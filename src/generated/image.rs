@@ -1,3 +1,4 @@
+use crate::error::Result;
 use crate::ffi;
 use crate::image::Image;
 use apple_metal::CommandBuffer as MetalCommandBuffer;
@@ -111,7 +112,11 @@ pub fn image_batch_resource_size(images: &[&Image]) -> usize {
     unsafe { ffi::mps_image_batch_resource_size(handles_ptr, handles.len()) }
 }
 
-pub fn image_batch_synchronize(images: &[&Image], command_buffer: &MetalCommandBuffer) {
+pub fn image_batch_synchronize(
+    images: &[&Image],
+    command_buffer: &MetalCommandBuffer,
+) -> Result<()> {
+    crate::core::ensure_recording(command_buffer)?;
     let handles: Vec<_> = images.iter().map(|image| image.as_ptr()).collect();
     let handles_ptr = if handles.is_empty() {
         ptr::null()
@@ -121,6 +126,7 @@ pub fn image_batch_synchronize(images: &[&Image], command_buffer: &MetalCommandB
     unsafe {
         ffi::mps_image_batch_synchronize(handles_ptr, handles.len(), command_buffer.as_ptr());
     }
+    Ok(())
 }
 
 #[must_use]

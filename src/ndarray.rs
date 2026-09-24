@@ -365,6 +365,7 @@ impl NDArrayIdentity {
         source: &NDArray,
         dimension_sizes: &[usize],
     ) -> Option<NDArray> {
+        crate::core::ensure_recording(command_buffer).ok()?;
         if !reshape_is_valid(source, dimension_sizes, None) {
             return None;
         }
@@ -393,7 +394,9 @@ impl NDArrayIdentity {
         dimension_sizes: &[usize],
         destination: &NDArray,
     ) -> bool {
-        if !reshape_is_valid(source, dimension_sizes, Some(destination)) {
+        if command_buffer.is_some_and(|buffer| crate::core::ensure_recording(buffer).is_err())
+            || !reshape_is_valid(source, dimension_sizes, Some(destination))
+        {
             return false;
         }
         let command_buffer_ptr = command_buffer.map_or(ptr::null_mut(), MetalCommandBuffer::as_ptr);
@@ -485,6 +488,7 @@ impl NDArrayMatrixMultiplication {
         command_buffer: &MetalCommandBuffer,
         source_arrays: &[&NDArray],
     ) -> Option<NDArray> {
+        crate::core::ensure_recording(command_buffer).ok()?;
         validate_multiplication(self.source_count, source_arrays, None).ok()?;
         let handles: Vec<_> = source_arrays.iter().map(|array| array.as_ptr()).collect();
         let handles_ptr = if handles.is_empty() {
@@ -514,6 +518,7 @@ impl NDArrayMatrixMultiplication {
         source_arrays: &[&NDArray],
         destination: &NDArray,
     ) -> Result<()> {
+        crate::core::ensure_recording(command_buffer)?;
         validate_multiplication(self.source_count, source_arrays, Some(destination))?;
         let handles: Vec<_> = source_arrays.iter().map(|array| array.as_ptr()).collect();
         let handles_ptr = if handles.is_empty() {

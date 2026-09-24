@@ -9,8 +9,8 @@ extern "C" {
     pub fn mps_hint_temporary_memory_high_water_mark(
         command_buffer_handle: *mut c_void,
         bytes: usize,
-    );
-    pub fn mps_set_heap_cache_duration(command_buffer_handle: *mut c_void, seconds: f64);
+    ) -> bool;
+    pub fn mps_set_heap_cache_duration(command_buffer_handle: *mut c_void, seconds: f64) -> bool;
     pub fn mps_rect_no_clip(
         x: *mut usize,
         y: *mut usize,
@@ -33,6 +33,8 @@ extern "C" {
         predicate_handle: *mut c_void,
     );
     pub fn mps_command_buffer_clear_predicate(command_buffer_handle: *mut c_void);
-    pub fn mps_command_buffer_prefetch_heap(command_buffer_handle: *mut c_void, size: usize);
-    pub fn mps_command_buffer_commit_and_continue(command_buffer_handle: *mut c_void);
+    pub fn mps_command_buffer_prefetch_heap(
+        command_buffer_handle: *mut c_void,
+        size: usize,
+    ) -> bool;
 }
