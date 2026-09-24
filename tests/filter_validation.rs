@@ -477,7 +477,12 @@ fn histograms_check_their_source() {
         },
     )
     .expect("histogram");
-    for format in [pixel_format::A8UNORM, pixel_format::DEPTH32FLOAT, 9_999] {
+    for format in [
+        pixel_format::A8UNORM,
+        pixel_format::DEPTH32FLOAT,
+        pixel_format::R32UINT,
+        9_999,
+    ] {
         assert_eq!(
             histogram.histogram_size_for_source_format(format),
             Err(unsupported("source", format))
@@ -506,8 +511,17 @@ fn histograms_check_their_source() {
         Err(unsupported("source", pixel_format::A8UNORM))
     );
     let integer = texture(&device, pixel_format::R32UINT, 8, 8);
+    assert_eq!(
+        histogram.encode_texture(&command_buffer, &integer, &bins, 0),
+        Err(unsupported("source", pixel_format::R32UINT))
+    );
+    assert_eq!(
+        histogram.histogram_size_for_source_format(pixel_format::R32UINT),
+        Err(unsupported("source", pixel_format::R32UINT))
+    );
+    let float = texture(&device, pixel_format::RGBA8UNORM, 8, 8);
     histogram
-        .encode_texture(&command_buffer, &integer, &bins, 0)
-        .expect("histograms accept integer sources");
+        .encode_texture(&command_buffer, &float, &bins, 0)
+        .expect("histograms accept normalized sources");
     run(&command_buffer);
 }

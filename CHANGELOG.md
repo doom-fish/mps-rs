@@ -74,6 +74,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `MPSImageMedian`'s 3–127 range; they now return `None`.
 - `ImageHistogram::histogram_size_for_source_format` aborted for formats MPS
   cannot histogram (A8, depth, compressed); it now returns an error.
+- `ImageHistogram` accepted integer source textures, which its kernels read
+  through a float texture parameter: the results are undefined and Metal's
+  validation layer aborts. `encode_image`, `encode_texture` and
+  `histogram_size_for_source_format` now refuse integer formats.
 - Encoding into a committed command buffer aborted. Every encode path, the
   temporary `State` constructors, the synchronize helpers,
   `hint_temporary_memory_high_water_mark`, `set_heap_cache_duration` and

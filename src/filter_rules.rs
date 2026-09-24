@@ -80,7 +80,8 @@ const fn format_traits(pixel_format: usize) -> Option<FormatTraits> {
 }
 
 pub fn histogram_source_supported(pixel_format: usize) -> bool {
-    format_traits(pixel_format).is_some_and(|traits| traits.model != ColorModel::Alpha)
+    format_traits(pixel_format)
+        .is_some_and(|traits| !traits.integer && traits.model != ColorModel::Alpha)
 }
 
 #[derive(Clone, Copy)]
