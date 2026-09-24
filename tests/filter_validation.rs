@@ -55,7 +55,7 @@ fn committed(queue: &CommandQueue) -> CommandBuffer {
     command_buffer
 }
 
-fn unsupported(operand: &'static str, pixel_format: usize) -> Error {
+const fn unsupported(operand: &'static str, pixel_format: usize) -> Error {
     Error::UnsupportedPixelFormat {
         operand,
         pixel_format,
