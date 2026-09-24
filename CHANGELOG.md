@@ -56,6 +56,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   channel formats now range-check their raw values.
 - Graph image nodes now carry an `MPSHandle`, so `NNGraph::source_image_count`
   reports the images the graph needs instead of 0.
+- Image filters passed incompatible textures to MPS, which asserts and aborts
+  the process. Before encoding, the unary filters, `ImageAdd` and
+  `ImageHistogram` now check, per kernel group: that the command buffer is
+  still recording; normalized or floating-point formats (integer, depth,
+  compressed and packed 16-bit destination formats are refused); the color
+  model or channel count each kernel requires (Sobel may reduce to one
+  channel, thresholding converts anything, the statistics kernels need equal
+  channel counts, median and statistics refuse A8); matching 2D or 2D-array
+  texture types and array lengths; at most 4 feature channels for unary
+  kernels; a destination that does not alias a source (including views of
+  it); sources readable and destinations writable by shaders; a clipped
+  destination at least 2 pixels wide for `ImageStatisticsMinAndMax`; the
+  kernel's device; and a 2D histogram source.
+- `ImageBox::new` and `ImageConvolution::new` aborted on even kernel sizes and
+  `ImageMedian::new` on even diameters or diameters outside
+  `MPSImageMedian`'s 3–127 range; they now return `None`.
+- `ImageHistogram::histogram_size_for_source_format` aborted for formats MPS
+  cannot histogram (A8, depth, compressed); it now returns an error.
+- Encoding into a committed command buffer aborted. Every encode path, the
+  temporary `State` constructors, the synchronize helpers,
+  `hint_temporary_memory_high_water_mark`, `set_heap_cache_duration` and
+  `MpsCommandBuffer::prefetch_heap_for_workload_size` now check that the
+  command buffer is still recording.
 - COVERAGE.md and COVERAGE_AUDIT*.md claimed 479/479 symbols; 353 of them are
   method-less opaque handles and 29 raw-value newtypes. They now report 97
   verified symbols and list the rest as gaps. The README states the platform
@@ -82,13 +105,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the optimizer `encode_*` methods, `PolygonAccelerationStructure::rebuild` and
   `encode_refit`, `RayIntersector::encode_intersection`, and
   `ImageHistogram::encode_image` and `encode_texture`.
+- **BREAKING:** the filter `encode_image` and `encode_texture` methods (every
+  unary filter, `ImageAdd` and `ImageScaleAndAdd`) return `Result<()>`, and
+  their textures need `texture_usage::SHADER_READ` (sources) and
+  `texture_usage::SHADER_WRITE` (destination).
+- **BREAKING:** `hint_temporary_memory_high_water_mark`,
+  `set_heap_cache_duration`, `State::synchronize_on_command_buffer`,
+  `state_batch_synchronize`, `image::image_batch_synchronize` and
+  `MpsCommandBuffer::prefetch_heap_for_workload_size` return `Result<()>`, and
+  `ImageHistogram::histogram_size_for_source_format` returns `Result<usize>`.
 - **BREAKING:** `PolygonAccelerationStructure::set_index_buffer` is `unsafe`:
   MPS reads vertices through the indices, whose values the crate can't check.
 - **BREAKING:** `Error` is `#[non_exhaustive]` and gains `BufferTooSmall`,
   `Misaligned`, `DimensionMismatch`, `InvalidArgument`, `UnsupportedDataType`,
-  `Overflow`, `Unsupported` and `Rejected`.
+  `Overflow`, `Unsupported`, `Rejected`, `NotRecording` and
+  `UnsupportedPixelFormat`.
 - `NDArrayMatrixMultiplication::new` accepts 2 or 3 sources only, and the
-  `ffi` image-transfer and histogram functions changed signature.
+  `ffi` image-transfer, histogram, filter-encode, heap-hint and prefetch
+  functions changed signature.
 
 ### Added
 
@@ -98,6 +132,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and `feature_channel_format_size`.
 - `data_type` constants for bfloat16, the complex types, 64-bit integers, bool
   and the sub-byte types; `data_type_size` covers the byte-sized ones.
+
+### Removed
+
+- **BREAKING:** `MpsCommandBuffer::commit_and_continue`. It committed the
+  wrapped command buffer without apple-metal knowing, so the next
+  `CommandBuffer::commit` aborted; it also aborted on committed buffers and
+  with an open encoder.
 
 ## [0.2.6] - 2026-06-06
 
