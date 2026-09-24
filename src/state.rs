@@ -1,6 +1,6 @@
 use crate::error::{Error, Result};
 use crate::ffi;
-use apple_metal::{CommandBuffer as MetalCommandBuffer, MetalDevice};
+use apple_metal::{CommandBuffer as MetalCommandBuffer, CommandBufferError, MetalDevice};
 use core::ffi::c_void;
 use core::ptr;
 
@@ -34,10 +34,16 @@ pub struct StateTextureInfo {
 }
 
 macro_rules! opaque_handle {
-    ($name:ident, $doc:expr) => {
-        opaque_handle!($name, $doc, ffi::mps_object_release);
+    (@pointer $name:ident) => {
+        impl $name {
+            /// Returns the retained Objective-C pointer backing this wrapper.
+            #[must_use]
+            pub const fn as_ptr(&self) -> *mut c_void {
+                self.ptr
+            }
+        }
     };
-    ($name:ident, $doc:expr, $release:path) => {
+    ($name:ident, $doc:expr) => {
         #[doc = $doc]
         pub struct $name {
             ptr: *mut c_void,
@@ -50,19 +56,13 @@ macro_rules! opaque_handle {
             fn drop(&mut self) {
                 if !self.ptr.is_null() {
                     // SAFETY: `ptr` is a +1 retained MPS object owned by this wrapper.
-                    unsafe { $release(self.ptr) };
+                    unsafe { ffi::mps_object_release(self.ptr) };
                     self.ptr = ptr::null_mut();
                 }
             }
         }
 
-        impl $name {
-            /// Returns the retained Objective-C pointer backing this wrapper.
-            #[must_use]
-            pub const fn as_ptr(&self) -> *mut c_void {
-                self.ptr
-            }
-        }
+        opaque_handle!(@pointer $name);
     };
 }
 
@@ -87,7 +87,29 @@ impl StateResourceList {
     }
 }
 
-opaque_handle!(State, "Wraps `MPSState`.", ffi::mps_state_release);
+/// Wraps `MPSState`.
+pub struct State {
+    ptr: *mut c_void,
+    command_buffer: Option<MetalCommandBuffer>,
+}
+
+unsafe impl Send for State {}
+
+impl Drop for State {
+    fn drop(&mut self) {
+        let ptr = self.ptr;
+        if let Some(command_buffer) = &self.command_buffer {
+            let _ = guarded(&[command_buffer], &mut || unsafe {
+                ffi::mps_state_release(ptr);
+            });
+        } else {
+            unsafe { ffi::mps_object_release(ptr) };
+        }
+    }
+}
+
+opaque_handle!(@pointer State);
+
 impl State {
     /// Wraps a constructor on `MPSState`.
     #[must_use]
@@ -100,7 +122,10 @@ impl State {
         if ptr.is_null() {
             None
         } else {
-            Some(Self { ptr })
+            Some(Self {
+                ptr,
+                command_buffer: Some(command_buffer.clone()),
+            })
         }
     }
 
@@ -117,7 +142,10 @@ impl State {
         if ptr.is_null() {
             None
         } else {
-            Some(Self { ptr })
+            Some(Self {
+                ptr,
+                command_buffer: Some(command_buffer.clone()),
+            })
         }
     }
 
@@ -129,7 +157,10 @@ impl State {
         if ptr.is_null() {
             None
         } else {
-            Some(Self { ptr })
+            Some(Self {
+                ptr,
+                command_buffer: None,
+            })
         }
     }
 
@@ -145,7 +176,10 @@ impl State {
         if ptr.is_null() {
             None
         } else {
-            Some(Self { ptr })
+            Some(Self {
+                ptr,
+                command_buffer: None,
+            })
         }
     }
 
@@ -162,7 +196,10 @@ impl State {
         if ptr.is_null() {
             None
         } else {
-            Some(Self { ptr })
+            Some(Self {
+                ptr,
+                command_buffer: Some(command_buffer.clone()),
+            })
         }
     }
 
@@ -182,11 +219,11 @@ impl State {
 
     /// Wraps the corresponding `MPSState` setter.
     pub fn set_read_count(&self, count: usize) -> Result<()> {
-        if !self.is_temporary() {
+        let Some(command_buffer) = &self.command_buffer else {
             return Err(Error::InvalidArgument(
                 "only temporary states have a read count",
             ));
-        }
+        };
         if self.read_count() == 0 && count > 0 {
             return Err(Error::InvalidArgument(
                 "a temporary state whose read count reached zero has returned its storage to MPS",
@@ -194,7 +231,9 @@ impl State {
         }
         isize::try_from(count).map_err(|_| Error::Overflow)?;
         // SAFETY: self.ptr is a valid State object.
-        let accepted = unsafe { ffi::mps_state_set_read_count(self.ptr, count) };
+        let accepted = guarded(&[command_buffer], &mut || unsafe {
+            ffi::mps_state_set_read_count(self.ptr, count)
+        })?;
         accepted
             .then_some(())
             .ok_or(Error::Rejected("MPSState readCount"))
@@ -272,19 +311,43 @@ impl State {
     }
 }
 
+fn guarded<R>(command_buffers: &[&MetalCommandBuffer], call: &mut dyn FnMut() -> R) -> Result<R> {
+    let Some((command_buffer, rest)) = command_buffers.split_first() else {
+        return Ok(call());
+    };
+    match command_buffer.encode_foreign(|_| guarded(rest, call)) {
+        Ok(result) => result,
+        Err(CommandBufferError::InvalidState { .. }) => guarded(rest, call),
+        Err(error) => Err(Error::CommandBuffer(error)),
+    }
+}
+
 const TEMPORARY_SYNCHRONIZE: &str =
     "temporary states are GPU-private and cannot be synchronized with the CPU";
 
 /// Calls `MPSStateBatchIncrementReadCount` for the provided `MPSState` values.
 pub fn state_batch_increment_read_count(states: &[&State], amount: isize) -> Result<usize> {
+    let mut command_buffers: Vec<&MetalCommandBuffer> = Vec::new();
+    for command_buffer in states
+        .iter()
+        .filter_map(|state| state.command_buffer.as_ref())
+    {
+        if !command_buffers
+            .iter()
+            .any(|known| known.as_ptr() == command_buffer.as_ptr())
+        {
+            command_buffers.push(command_buffer);
+        }
+    }
     let handles: Vec<_> = states.iter().map(|state| state.as_ptr()).collect();
     let handles_ptr = if handles.is_empty() {
         ptr::null()
     } else {
         handles.as_ptr()
     };
-    let unique =
-        unsafe { ffi::mps_state_batch_increment_read_count(handles_ptr, handles.len(), amount) };
+    let unique = guarded(&command_buffers, &mut || unsafe {
+        ffi::mps_state_batch_increment_read_count(handles_ptr, handles.len(), amount)
+    })?;
     usize::try_from(unique).map_err(|_| {
         Error::InvalidArgument("a temporary state's read count would drop below zero or overflow")
     })

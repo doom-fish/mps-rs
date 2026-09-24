@@ -111,6 +111,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `NNImageNode::set_export_from_graph(true)` as an unreachable `MPSTemporaryImage`
   with read count 1, so the validation layer aborted when MPS released it. The
   encode now collects the exported images and sets their read counts to zero.
+- Changing a temporary state's read count, including the zeroing on drop, returns
+  storage to MPS's per-command-buffer heap. These changes ran outside apple-metal's
+  command-buffer guard, so they could race an MPS encode on another thread. A
+  temporary `State` now keeps its command buffer and changes its count through
+  `CommandBuffer::encode_foreign`. Once the buffer is committed, nothing can encode
+  into it, so the change applies directly.
 - COVERAGE.md and COVERAGE_AUDIT*.md claimed 479/479 symbols; 353 of them are
   method-less opaque handles and 29 raw-value newtypes. They now report 97
   verified symbols and list the rest as gaps. The README states the platform
@@ -164,6 +170,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `mps_state_synchronize_on_command_buffer` and `mps_state_batch_synchronize` return
   `bool`, `mps_state_batch_increment_read_count` returns `isize` (-1 when refused),
   and `ffi::mps_state_release` is new.
+- **BREAKING:** While another encoder is open on a temporary state's command buffer,
+  `State::set_read_count` and `state_batch_increment_read_count` return
+  `Error::CommandBuffer(ActiveEncoder)`, and dropping the state leaks it instead of
+  releasing it. A temporary `State` keeps its command buffer alive.
 - `NDArrayMatrixMultiplication::new` accepts 2 or 3 sources only, and the
   `ffi` image-transfer, histogram, filter-encode, heap-hint and prefetch
   functions changed signature; `ffi::mps_command_buffer_from_command_queue` is

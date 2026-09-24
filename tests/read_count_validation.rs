@@ -1,4 +1,4 @@
-use apple_metal::MetalDevice;
+use apple_metal::{CommandBufferError, MetalDevice};
 use apple_mps::{
     data_type, feature_channel_format, state_batch_increment_read_count, state_batch_synchronize,
     CnnNeuronReluNode, Error, Image, ImageDescriptor, NDArray, NDArrayDescriptor,
@@ -66,6 +66,38 @@ fn read_counts_refuse_what_mps_aborts_on() {
 }
 
 #[test]
+fn read_counts_wait_for_open_encoders() {
+    let device = device();
+    let queue = device.new_command_queue().expect("command queue");
+    let command_buffer = queue.new_command_buffer().expect("command buffer");
+    let temporary =
+        State::temporary_with_buffer_size(&command_buffer, 64).expect("temporary state");
+    let leaked = State::temporary_with_buffer_size(&command_buffer, 64).expect("temporary state");
+    let encoder = command_buffer
+        .new_compute_command_encoder()
+        .expect("compute encoder");
+    assert!(matches!(
+        temporary.set_read_count(0),
+        Err(Error::CommandBuffer(CommandBufferError::ActiveEncoder))
+    ));
+    assert!(matches!(
+        state_batch_increment_read_count(&[&temporary], 1),
+        Err(Error::CommandBuffer(CommandBufferError::ActiveEncoder))
+    ));
+    assert_eq!(temporary.read_count(), 1);
+    drop(leaked);
+    encoder.end_encoding().expect("end encoding");
+    temporary.set_read_count(2).expect("raise the read count");
+    command_buffer.commit().expect("commit");
+    assert_eq!(
+        state_batch_increment_read_count(&[&temporary], -1).expect("lower after commit"),
+        1
+    );
+    temporary.set_read_count(0).expect("zero after commit");
+    command_buffer.wait_until_completed().expect("completed");
+}
+
+#[test]
 fn temporary_recurrent_outputs_are_refused() {
     let device = device();
     let descriptor = RnnSingleGateDescriptor::new(1, 1)
@@ -113,6 +145,12 @@ fn exercise_temporary_objects() {
     drop(raised);
     let kept = State::temporary_with_buffer_size(&command_buffer, 16).expect("temporary state");
     kept.set_read_count(7).expect("raise the read count");
+    let leaked = State::temporary_with_buffer_size(&command_buffer, 8).expect("temporary state");
+    let encoder = command_buffer
+        .new_compute_command_encoder()
+        .expect("compute encoder");
+    drop(leaked);
+    encoder.end_encoding().expect("end encoding");
 
     let descriptor = NDArrayDescriptor::with_dimension_sizes(data_type::FLOAT32, &[2, 2, 1, 1])
         .expect("descriptor");
