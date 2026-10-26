@@ -4,14 +4,14 @@ version = 3
 
 [[package]]
 name = "apple-cf"
-version = "0.11.0"
+version = "0.11.4"
 dependencies = [
  "doom-fish-utils",
 ]
 
 [[package]]
 name = "apple-metal"
-version = "0.10.0"
+version = "0.10.3"
 dependencies = [
  "apple-cf",
  "doom-fish-utils",
@@ -20,7 +20,7 @@ dependencies = [
 
 [[package]]
 name = "apple-mps"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "apple-metal",
 ]
